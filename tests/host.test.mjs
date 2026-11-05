@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHost } from '../src/host/server.mjs';
+import http from 'node:http';
+
+test('host loopback protege bootstrap, origem, assets e histórico', async t => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'farol-test-'));
+  const host = await createHost({ dataDir, idleTimeout: 0, environment: { color: { status: 'unknown' } } });
+  t.after(async () => { await host.close(); await rm(dataDir, { recursive: true, force: true }); });
+  const get = (path, options) => fetch(host.origin + path, options);
+  assert.equal(host.server.address().address, '127.0.0.1');
+  assert.equal((await get('/api/environment')).status, 401);
+  assert.equal((await get('/bootstrap?token=wrong')).status, 403);
+  const bootstrap = await fetch(host.bootstrapUrl, { redirect: 'manual' });
+  assert.equal(bootstrap.status, 303);
+  const cookie = bootstrap.headers.get('set-cookie').split(';')[0];
+  assert.match(bootstrap.headers.get('set-cookie'), /HttpOnly; SameSite=Strict/);
+  assert.equal((await fetch(host.bootstrapUrl, { redirect: 'manual' })).status, 403);
+  const headers = { Cookie: cookie };
+  const index = await get('/', { headers });
+  assert.equal(index.status, 200); assert.match(index.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  assert.equal((await get('/native/Launcher.cs', { headers })).status, 404);
+  const rebindStatus = await new Promise((resolve, reject) => { const req = http.get(host.origin, { headers: { ...headers, Host: 'attacker.test' } }, res => { res.resume(); resolve(res.statusCode); }); req.on('error', reject); });
+  assert.equal(rebindStatus, 403);
+  const body = JSON.stringify({ source: 'pattern', result: 'stopped', start: '2026-11-05T12:00:00Z', end: '2026-11-05T12:01:00Z', secret: 'must-not-persist' });
+  assert.equal((await get('/api/history', { method: 'POST', headers, body })).status, 403);
+  const authorized = { ...headers, Origin: host.origin, 'X-Farol-Request': '1' };
+  assert.equal((await get('/api/history', { method: 'POST', headers: { ...authorized, Origin: 'http://attacker.test' }, body })).status, 403);
+  assert.equal((await get('/api/history', { method: 'POST', headers: authorized, body })).status, 201);
+  const records = await (await get('/api/history', { headers })).json();
+  assert.equal(records.length, 1); assert.equal(records[0].secret, undefined); assert.equal(records[0].source, 'pattern');
+  assert.equal((await get('/api/history', { method: 'POST', headers: authorized, body: body.replace('stopped', 'unknown') })).status, 400);
+  assert.equal((await get('/api/history', { method: 'POST', headers: authorized, body: 'x'.repeat(3000) })).status, 413);
+});
