@@ -1,4 +1,4 @@
-param([string]$PairingUrl = 'http://127.0.0.1:47832')
+param([string]$PairingUrl = 'https://voadesk.onrender.com')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
