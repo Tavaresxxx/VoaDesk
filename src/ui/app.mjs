@@ -111,14 +111,14 @@ $('diagnostic-toggle').addEventListener('click', () => { const open = $('diagnos
 $('export').addEventListener('click', () => {
   const report = { ...session.report(), environment, userAgent: navigator.userAgent, displayPixelRatio: window.devicePixelRatio, collectedAt: new Date().toISOString() };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
-  const a = document.createElement('a'); a.href = url; a.download = `farol-metricas-${new Date().toISOString().replaceAll(':', '-')}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const a = document.createElement('a'); a.href = url; a.download = `voadesk-metricas-${new Date().toISOString().replaceAll(':', '-')}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
-const heartbeat = setInterval(() => { post('/api/heartbeat', {}).then(response => { if (!response.ok) throw new Error('Host indisponível.'); }).catch(() => { clearInterval(heartbeat); if (active()) session.stop('connection-lost'); $('message').textContent = 'Serviço local encerrado. Feche e reabra o Farol.'; $('start').disabled = true; }); }, 5000);
+const heartbeat = setInterval(() => { post('/api/heartbeat', {}).then(response => { if (!response.ok) throw new Error('Host indisponível.'); }).catch(() => { clearInterval(heartbeat); if (active()) session.stop('connection-lost'); $('message').textContent = 'Serviço local encerrado. Feche e reabra o VoaDesk.'; $('start').disabled = true; }); }, 5000);
 window.addEventListener('pagehide', () => { session.stop('closed'); clearInterval(heartbeat); });
 async function init() {
   try {
     const response = await fetch('/api/environment');
-    if (!response.ok) throw new Error('Ambiente local indisponível. Reabra o Farol.');
+    if (!response.ok) throw new Error('Ambiente local indisponível. Reabra o VoaDesk.');
     environment = await response.json();
     $('environment').textContent = `${environment.platform} ${environment.release} ${environment.arch} · ${environment.cpu} · ${environment.memoryGiB} GiB · cor: ${environment.color.status}. ${environment.color.reason ?? ''} ¹ Indicação do runtime, não prova independente de GPU.`;
     sourceHelp(); await renderHistory();
