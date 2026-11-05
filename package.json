@@ -5,7 +5,7 @@
   "type": "module",
   "description": "VoaDesk: cliente compacto, pareamento temporário e laboratório H.264",
   "scripts": {
-    "start": "node src/host/server.mjs --open",
+    "start": "node src/start.mjs --open",
     "start:pairing": "node src/pairing/service.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:video": "node tools/video-smoke.mjs",
