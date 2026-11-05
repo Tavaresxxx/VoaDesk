@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VoaDesk · Suporte remoto</title><link rel="icon" type="image/x-icon" href="/voadesk.ico"><link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <aside class="rail">
+    <a class="brand" href="/" aria-label="VoaDesk início"><img src="/logo.png" alt="VoaDesk"></a>
+    <span class="rail-caption">CONEXÕES MAIS PRÓXIMAS</span>
+    <a class="nav-active" href="#access"><span>↗</span> Acessar computador</a>
+    <a class="nav-item" href="#lab"><span>▱</span> Laboratório de vídeo</a>
+    <div class="milestone"><span class="tag">INCREMENTO 01</span><h3>O primeiro sinal.</h3><p>Uma base mensurável para conexões mais próximas.</p><div class="steps"><i class="done"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    <div class="rail-bottom"><span class="dot"></span> Ambiente local <small>Windows · x64</small></div>
+  </aside>
+  <main>
+    <header><div class="breadcrumbs">VoaDesk <span>/</span> Área do técnico</div><span class="version">PRÉVIA 0.2 <span>•</span> PAREAMENTO DE CLIENTES</span></header>
+    <section class="intro"><div><div class="eyebrow">SUPORTE SEM COMPLICAÇÃO</div><h1>Seu suporte,<br>a um código de distância.</h1><p>Peça ao cliente para abrir o VoaDesk Cliente.<br>Depois, informe abaixo o código que aparece na tela dele.</p></div><img class="intro-symbol" src="/symbol.png" alt=""></section>
+    <section class="access-card panel" id="access"><div><span class="section-kicker">ACESSAR COMPUTADOR</span><h2>Qual é o código do cliente?</h2><p>O código é temporário e só pode ser utilizado uma vez.</p></div><form id="access-form"><label class="sr-only" for="access-code">Código de acesso do cliente</label><div class="access-input-row"><input id="access-code" type="text" placeholder="XXXX XXXX XXXX" maxlength="14" autocomplete="off" spellcheck="false" required><button class="primary" id="verify-code" disabled>Verificar código <span>↗</span></button></div><p id="access-message" class="help" role="status" aria-live="polite">Conectando ao serviço de códigos…</p></form></section>
+    <div class="lab-title" id="lab"><div><span class="section-kicker">LABORATÓRIO DE VÍDEO</span><h2>Antes da próxima conexão, teste a imagem.</h2></div><span class="lab-badge">ENSAIO LOCAL</span></div>
+    <div class="workspace">
+      <section class="panel source-panel"><div class="panel-heading"><span class="number">01</span><h2>Preparar o ensaio</h2></div>
+        <label class="field-label" for="source">Fonte de imagem</label>
+        <select id="source"><option value="pattern">Cartela de teste · SDR 1080p</option><option value="screen">Compartilhar meu monitor</option></select>
+        <p class="help" id="source-help">Textos pequenos, cores e movimento. Não captura sua tela.</p>
+        <label class="field-label" for="profile">Perfil de transmissão</label>
+        <select id="profile"><option value="quality">Qualidade · resolução e legibilidade</option><option value="balanced" selected>Equilibrado · imagem e movimento</option><option value="smooth">Fluidez · resposta e continuidade</option></select>
+        <div class="permission"><span>◈</span><div><strong>Somente visualização local</strong><p>Ninguém está conectado. Mouse e teclado não são transmitidos.</p></div></div>
+        <label class="consent"><input type="checkbox" id="consent"><span>Autorizo este ensaio local de vídeo. Posso encerrá-lo a qualquer momento.</span></label>
+        <button id="start" class="primary" disabled>Iniciar ensaio <span>↗</span></button>
+        <p class="message" id="message" role="status" aria-live="polite">Pronto para testar. Nenhuma captura ativa.</p>
+        <p class="help preview-note">O pareamento reconhece o cliente. Vídeo e controle entre computadores ainda estão em desenvolvimento.</p>
+      </section>
+      <section class="panel viewer-panel" id="viewer"><div class="viewer-heading"><div><span class="dot" id="status-dot"></span><strong id="status">Aguardando início</strong></div><span id="mode-label">H.264 / LOOPBACK LOCAL</span></div>
+        <div id="viewport" class="viewport"><div id="placeholder" class="placeholder"><span class="screen-icon">▱</span><h3>Seu vídeo aparece aqui.</h3><p>Uma imagem que percorre o caminho completo:<br>captura, codificação, decodificação e apresentação.</p><div class="pipeline-label">FONTE <span>→</span> H.264 <span>→</span> VÍDEO</div></div><video id="video" autoplay muted playsinline hidden aria-label="Vídeo decodificado do ensaio"></video></div>
+        <div class="toolbar"><div class="toolbar-group"><button id="fit" class="selected" aria-pressed="true">Ajustar</button><button id="one" aria-pressed="false">1:1</button><button id="fullscreen" title="Tela cheia do visualizador">Tela cheia ↗</button></div><button id="stop" class="danger" disabled>■ Encerrar</button></div>
+        <div class="quick-stats"><div><span>RESOLUÇÃO</span><strong id="resolution">—</strong></div><div><span>FPS CODIFICADOS</span><strong id="fps">—</strong></div><div><span>BITRATE</span><strong id="bitrate">—</strong></div><div><span>RTT LOCAL</span><strong id="rtt">—</strong></div></div>
+      </section>
+    </div>
+    <section class="panel diagnostics"><div class="diagnostic-header"><div><span class="number">02</span><h2>O que está acontecendo</h2></div><div><button id="export" disabled>Exportar métricas ↓</button><button id="diagnostic-toggle" aria-expanded="false" aria-controls="diagnostic-body">Mostrar diagnóstico +</button></div></div><div id="diagnostic-body" hidden><p class="notice">RTT mede a ida e volta da rede local. A latência de ação até retorno visual ainda não foi medida.</p><dl id="diagnostic-grid"></dl><p id="environment" class="help">Consultando ambiente…</p><p class="help">Aceleração só é descrita quando exposta pelo runtime. O contador de apresentação mede callbacks do compositor, não a tela física.</p></div></section>
+    <section class="history"><div><h2>Ensaios recentes</h2><span>Até 100 registros locais · sem conteúdo de tela</span></div><ol id="history"><li>Nenhum ensaio registrado.</li></ol></section>
+    <footer><img class="footer-logo" src="/logo.png" alt="VoaDesk"><span>Você mantém o controle. Sempre.</span><span>Prévia 0.2 · vídeo remoto em desenvolvimento</span></footer>
+  </main><script type="module" src="/app.mjs"></script>
+</body></html>
