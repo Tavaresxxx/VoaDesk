@@ -123,7 +123,7 @@ export function openApp(url, dataDir = join(root, '.runtime')) {
   return child;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+export async function runDesktopApp() {
   let embedded;
   let pairing;
   const remoteUrl = process.env.VOADESK_PAIRING_URL;
@@ -144,4 +144,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // Bootstrap credential is not printed. CLI requires --open; tests import createHost.
     console.log('VoaDesk local pronto. Use npm start para abrir a janela.');
   }
+  return host;
 }
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await runDesktopApp();
