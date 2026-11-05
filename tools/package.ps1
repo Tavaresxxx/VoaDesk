@@ -18,6 +18,10 @@ foreach ($entry in @('voadesk','voadesk-video','render-deployment.json')) {
   $evidencePath = Join-Path $projectRoot ('artifacts\' + $entry)
   if (Test-Path -LiteralPath $evidencePath) { Copy-Item -LiteralPath $evidencePath -Destination $evidenceDir -Recurse }
 }
+foreach ($entry in @('environment.json','video-smoke.json','video-local-raw.json','video-synthetic.png','synthetic-quality-1080.png')) {
+  $evidencePath = Join-Path $projectRoot ('artifacts\' + $entry)
+  if (Test-Path -LiteralPath $evidencePath) { Copy-Item -LiteralPath $evidencePath -Destination $evidenceDir }
+}
 $zip = Join-Path $projectRoot 'dist\VoaDesk-0.2.0-windows-x64.zip'
 Compress-Archive -LiteralPath $stagingRoot -DestinationPath $zip -Force
 $clientDir = Join-Path (Split-Path -Parent $stagingRoot) 'VoaDeskCliente'
