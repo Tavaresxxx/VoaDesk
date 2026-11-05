@@ -39,10 +39,12 @@ export async function createPairingService({ port = 0, host = '127.0.0.1', opera
   server.on('close', () => clearInterval(cleanup));
   return { server, operatorToken, origin: `http://127.0.0.1:${server.address().port}`, close: () => { clearInterval(cleanup); server.closeAllConnections(); return new Promise(r => server.close(r)); } };
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+export async function runPairingServiceFromEnvironment() {
   const operatorToken = process.env.VOADESK_OPERATOR_TOKEN;
   if (!operatorToken) throw new Error('Configure VOADESK_OPERATOR_TOKEN no servidor. Nunca incorpore essa credencial ao cliente.');
   const service = await createPairingService({ port: Number(process.env.PORT ?? 47832), host: process.env.VOADESK_BIND ?? '0.0.0.0', operatorToken, trustProxy: process.env.VOADESK_TRUST_PROXY === 'true' });
   console.log('VoaDesk: serviço de códigos pronto; mídia e comandos remotos não habilitados.');
   const shutdown = async () => { await service.close(); process.exit(0); }; process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
+  return service;
 }
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await runPairingServiceFromEnvironment();
