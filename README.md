@@ -54,6 +54,8 @@ node --test tests/core.test.mjs tests/host.test.mjs tests/pairing.test.mjs
 
 Teste visual/integração usa uma instalação de Playwright informada por `FAROL_PLAYWRIGHT`; esse nome de variável preserva compatibilidade com o laboratório inicial. `tools/client-smoke.mjs` verifica o cliente nativo e o fluxo do painel usando servidor local. As imagens do cliente têm código substituído por `XXXX XXXX XXXX`, nunca o segredo ativo. `tools/video-smoke.mjs` verifica o caminho H.264 após a mudança visual; não depende do servidor remoto.
 
+Antes dos testes nativos, execute `powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-test-tools.ps1`. O teste `tools/window-smoke.mjs` consulta as propriedades da janela principal criada pelo próprio teste; exige que esse contexto consiga abrir Edge com janela. Neste executor isso não foi possível; o resultado ficou explicitamente não confirmado, sem desativar o sandbox do aplicativo.
+
 - [Entrega 0.2, implantação e evidências](docs/voadesk-0.2.md)
 - [Arquitetura inicial e fontes](docs/architecture.md)
 - [Protocolo e evolução de segurança](docs/security-and-next.md)
