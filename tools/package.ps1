@@ -1,7 +1,8 @@
-param([string]$PairingUrl = 'https://voadesk.onrender.com')
+param([string]$PairingUrl = 'https://voadesk.onrender.com', [switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-& (Join-Path $PSScriptRoot 'build.ps1') -PairingUrl $PairingUrl
+if (!$SkipBuild) { & (Join-Path $PSScriptRoot 'build.ps1') -PairingUrl $PairingUrl }
+else { foreach ($binary in @('VoaDesk.exe','VoaDeskCliente.exe','VoaDeskWindow.exe','FarolProbe.exe')) { if (!(Test-Path -LiteralPath (Join-Path $projectRoot ('dist\'+$binary)))) { throw ('Binario ausente: '+$binary) } } }
 $stagingRoot = Join-Path $projectRoot ('.cache\packages\' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '\VoaDesk')
 New-Item -ItemType Directory -Force -Path $stagingRoot | Out-Null
 foreach ($entry in @('src','native','tools','docs','tests','assets','README.md','LICENSE','package.json','IniciarVoaDesk.bat','IniciarCliente.bat')) {
@@ -14,7 +15,7 @@ foreach ($binary in @('VoaDesk.exe','VoaDeskCliente.exe','VoaDeskWindow.exe','Fa
 }
 $evidenceDir = Join-Path $stagingRoot 'artifacts'
 New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
-foreach ($entry in @('voadesk','voadesk-video','render-deployment.json')) {
+foreach ($entry in @('voadesk','voadesk-video','render-deployment.json','startup-permission-fix.json')) {
   $evidencePath = Join-Path $projectRoot ('artifacts\' + $entry)
   if (Test-Path -LiteralPath $evidencePath) { Copy-Item -LiteralPath $evidencePath -Destination $evidenceDir -Recurse }
 }
