@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { PairingRegistry } from './registry.mjs';
+import { probePairingService } from './probe.mjs';
 const equal = (a, b) => typeof a === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export async function createPairingService({ port = 0, host = '127.0.0.1', operatorToken = randomBytes(32).toString('base64url'), registry = new PairingRegistry(), trustProxy = false } = {}) {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(operatorToken)) throw new Error('VOADESK_OPERATOR_TOKEN deve ter de 32 a 128 caracteres seguros.');
@@ -43,6 +44,10 @@ export async function runPairingServiceFromEnvironment() {
   const operatorToken = process.env.VOADESK_OPERATOR_TOKEN;
   if (!operatorToken) throw new Error('Configure VOADESK_OPERATOR_TOKEN no servidor. Nunca incorpore essa credencial ao cliente.');
   const service = await createPairingService({ port: Number(process.env.PORT ?? 47832), host: process.env.VOADESK_BIND ?? '0.0.0.0', operatorToken, trustProxy: process.env.VOADESK_TRUST_PROXY === 'true' });
+  if (process.env.VOADESK_STARTUP_SELF_TEST === 'true') {
+    try { console.log('VoaDesk HTTP startup self-test: ' + JSON.stringify(await probePairingService(service.origin, operatorToken))); }
+    catch { await service.close(); throw new Error('Autoteste HTTP do serviço falhou.'); }
+  }
   console.log('VoaDesk: serviço de códigos pronto; mídia e comandos remotos não habilitados.');
   const shutdown = async () => { await service.close(); process.exit(0); }; process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
   return service;
