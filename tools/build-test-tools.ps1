@@ -9,3 +9,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar teste do cliente.' }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'dist\VoaDeskCliente.exe') -Destination (Join-Path $cache 'VoaDeskCliente.exe') -Force
 & $compiler /nologo /target:exe /platform:x64 /optimize+ ('/out:' + (Join-Path $cache 'WindowSmoke.exe')) (Join-Path $projectRoot 'native\WindowSmoke.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar teste da janela.' }
+& $compiler /nologo /target:exe /platform:x64 /main:StartupSmoke /reference:System.Windows.Forms.dll /reference:System.Security.dll /reference:System.Web.Extensions.dll ('/out:' + (Join-Path $cache 'StartupSmoke.exe')) (Join-Path $projectRoot 'native\StartupSmoke.cs') (Join-Path $projectRoot 'native\Launcher.cs') (Join-Path $projectRoot 'native\OperatorSettings.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar teste das permissoes de inicializacao.' }
