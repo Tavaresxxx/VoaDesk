@@ -8,6 +8,7 @@ Resultado: **prova sintética local aprovada nos fluxos exercitados**. Não é a
 - Windows `10.0.26200`, x64 (Windows 11), Intel Core i5-1135G7 2,40 GHz, 8 CPUs lógicas, 16 GiB de RAM.
 - GPU reportada pelo CDP: Intel Iris Xe Graphics, driver Intel `32.0.101.7088`; também enumera Microsoft Basic Render Driver `10.0.26100.9711`. WMI foi negado; coleta alternativa em `artifacts/environment.json`.
 - Edge `156.0.4314.58`, modo headless, viewport CSS 1440 × 1040, DPR 1, Node `24.21.0`. Não houve controle de energia/temperatura ou isolamento de carga de outros aplicativos; este não é o hardware de referência homologado.
+- Correção de condições de teste identificada na revisão 0.2: os ensaios Playwright usaram o padrão da biblioteca `chromiumSandbox=false`. Isso é condição dos testes automatizados, não configuração do launcher distribuído, que mantém o sandbox padrão do Edge. Não tratar os ensaios headless como homologação da distribuição/sandbox Windows.
 - QueryDisplayConfig/AdvancedColorInfo2: duas telas SDR, canais de 6 e 8 bits conforme driver. **Não se capturou o desktop neste teste**; fonte foi canvas SDR 1920 × 1080 com texto/colorido, tabela e retângulo em movimento contínuo.
 - Dois RTCPeerConnection no mesmo renderer. Sem STUN/TURN, sem rede emulada ou segundo computador. Candidatos host, caminho direto local, DTLS-SRTP.
 - H.264 negociado: `level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f`. Chroma/codec internals não foram inspecionados; não afirmar 4:4:4 ou ausência de cópias de memória.
