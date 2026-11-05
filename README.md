@@ -24,6 +24,8 @@ Sem configuração remota, inicia um serviço de códigos somente em `127.0.0.1:
 
 No modo online, o launcher lê `.runtime/operator-settings.json`, restrito ao usuário Windows e SYSTEM e excluído do Git/pacotes. Prefere DPAPI; se DPAPI estiver indisponível, a configuração fica protegida por ACL Windows. A configuração do operador nunca deve ser enviada ao cliente ou copiada para GitHub. Autenticação individual do técnico por conta ainda é futura; a credencial atual autentica apenas o operador do serviço de códigos.
 
+Ao provisionar a configuração por outra conta, informe `--owner-sid SID_DA_CONTA_DO_TECNICO` ao configurador nativo. Essa conta é preservada nas atualizações; DPAPI não é criado para a conta errada. A ACL fica limitada ao destinatário, ao provisionador e a SYSTEM. Falhas de permissão agora mostram uma mensagem específica.
+
 ## Compilar
 
 ```powershell
