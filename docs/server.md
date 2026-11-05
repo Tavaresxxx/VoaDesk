@@ -1,5 +1,7 @@
 # Configuração do host
 
+Documento do incremento inicial. Para o serviço de códigos implementado na prévia VoaDesk 0.2, consulte `voadesk-0.2.md` e o README atual. Vídeo remoto/TURN continuam fora dessa entrega.
+
 ## Executável hoje
 
 `node src/host/server.mjs --open` inicia HTTP somente em `127.0.0.1` numa porta dinâmica, consulta `dist/FarolProbe.exe` e abre Edge em modo aplicativo. Não abrir firewall, não publicar a porta, não usar proxy para expor este host. Ele não é um servidor de sessões remotas. Não recebe vídeo, teclado, SDP ou candidatos.
