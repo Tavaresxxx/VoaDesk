@@ -36,6 +36,8 @@ Free serve para laboratório: suspensão após 15 min inativo, cold start, cotas
 
 ## Evidências locais executadas
 
+Correção de inicialização: o arquivo privado havia sido gravado só para a conta do executor, causando acesso negado na conta real do Windows. O provisionador agora aceita `--owner-sid`, preserva esse proprietário nas próximas gravações e aplica explicitamente a DACL também a arquivos existentes. Quando o destino é outra conta, não grava DPAPI da conta errada. A correção local manteve a credencial original, liberou somente a conta indicada além do executor e SYSTEM e permitiu abrir a janela VoaDesk no desktop do usuário. `StartupSmoke` verificou persistência da conta, preservação do token, ausência de grupos amplos e mensagem específica para erro de permissão. Resultado: `artifacts/startup-permission-fix.json`.
+
 - Build C# x64 passou: launcher, cliente autônomo, helper de ícone e probe de cor.
 - Nove testes Node passaram, incluindo códigos válidos/expirados, token vinculado, consumo, replay, revogação e rate limit.
 - `artifacts/voadesk/client-smoke.json`: cliente nativo exibiu código emitido pelo serviço, serviço reconheceu o código, recursos de logo/ícone presentes, janela compacta. Painel reconheceu outro código e rejeitou replay sem abrir captura. Layout testado em 1440 px e 760 px sem overflow horizontal, sem pageerror.
