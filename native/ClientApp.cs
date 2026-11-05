@@ -15,7 +15,7 @@ public sealed class ClientWindow : Form {
     readonly HttpClient http=new HttpClient(); readonly JavaScriptSerializer json=new JavaScriptSerializer();
     readonly Label code=new Label(), status=new Label(), expiry=new Label(); readonly Button copy=new Button(), renew=new Button();
     readonly Timer timer=new Timer(); readonly Stopwatch lifetime=new Stopwatch();
-    string token, accessCode; int ttl; bool busy, closing, allowClose; Uri server;
+    string token, accessCode; int ttl; bool busy, closing, allowClose, consumed; Uri server;
     readonly Color blue=Color.FromArgb(0,91,255), muted=Color.FromArgb(106,113,126);
     static Stream Resource(string name) { return Assembly.GetExecutingAssembly().GetManifestResourceStream(name); }
     public ClientWindow(string endpoint) {
@@ -41,8 +41,8 @@ public sealed class ClientWindow : Form {
         timer.Interval=1000; int ticks=0; timer.Tick+=async delegate {
             if (closing) return;
             if (token!=null) {
-                int remaining=Math.Max(0,ttl-(int)lifetime.Elapsed.TotalSeconds); expiry.Text=remaining>0 ? "Válido por " + TimeSpan.FromSeconds(remaining).ToString(@"mm\:ss") : "Código expirado. Gere um novo.";
-                if (remaining==0) { copy.Enabled=false; code.Text="EXPIRADO"; }
+                int remaining=Math.Max(0,ttl-(int)lifetime.Elapsed.TotalSeconds); expiry.Text=consumed ? "Código já utilizado" : remaining>0 ? "Válido por " + TimeSpan.FromSeconds(remaining).ToString(@"mm\:ss") : "Código expirado. Gere um novo.";
+                if (remaining==0 && !consumed) { copy.Enabled=false; code.Text="EXPIRADO"; }
                 if (++ticks%5==0 && !busy) await Poll();
             }
         };
@@ -72,15 +72,15 @@ public sealed class ClientWindow : Form {
             await Revoke(); var result=await Request("v1/clients",HttpMethod.Post,null);
             string nextToken=Convert.ToString(result["token"]);
             if(closing) { try { await Request("v1/clients/revoke",HttpMethod.Post,nextToken); } catch {} return; }
-            token=nextToken; accessCode=Convert.ToString(result["code"]); ttl=Convert.ToInt32(result["ttlSeconds"]); lifetime.Restart(); code.Text=accessCode; expiry.Text="Válido por "+TimeSpan.FromSeconds(ttl).ToString(@"mm\:ss"); status.Text="Informe este código ao técnico."; copy.Enabled=true;
+            token=nextToken; accessCode=Convert.ToString(result["code"]); consumed=false; ttl=Convert.ToInt32(result["ttlSeconds"]); lifetime.Restart(); code.Text=accessCode; expiry.Text="Válido por "+TimeSpan.FromSeconds(ttl).ToString(@"mm\:ss"); status.Text="Informe este código ao técnico."; copy.Enabled=true;
         } catch { if(!closing) { code.Font=new Font("Segoe UI",18,FontStyle.Bold); code.Text="Sem conexão"; status.Text="Serviço indisponível. Tente novamente em instantes."; expiry.Text=server.IsLoopback ? "Abra o VoaDesk principal para o teste local." : "O serviço gratuito pode levar cerca de 1 minuto para iniciar."; } }
         finally { busy=false; if(!closing)renew.Enabled=true; }
     }
     async Task Poll() {
         busy=true;
         try { var result=await Request("v1/clients/status",HttpMethod.Get,token); if(closing)return; var state=Convert.ToString(result["state"]);
-            if(state=="verified") { copy.Enabled=false; status.Text="Código reconhecido no painel do técnico."; }
-            else if(state=="expired") { copy.Enabled=false; code.Text="EXPIRADO"; status.Text="Solicite um novo código para continuar."; }
+            if(state=="verified") { consumed=true; copy.Enabled=false; expiry.Text="Código já utilizado"; status.Text="Código reconhecido no painel do técnico."; }
+            else if(state=="expired") { consumed=false; ttl=0; copy.Enabled=false; code.Text="EXPIRADO"; status.Text="Solicite um novo código para continuar."; }
         } catch { if(!closing)status.Text="Verificando conexão com o suporte…"; } finally { busy=false; }
     }
     [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr context);
