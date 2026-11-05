@@ -57,13 +57,13 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
       if (req.headers.host !== new URL(origin).host) return response(res, 403, 'Host inválido.');
       const url = new URL(req.url, origin);
       if (url.pathname === '/bootstrap' && req.method === 'GET') {
-        if (bootstrapped || Date.now() > bootstrapExpires || !equal(url.searchParams.get('token'), token)) return response(res, 403, 'Abertura expirada. Reabra o Farol.');
+        if (bootstrapped || Date.now() > bootstrapExpires || !equal(url.searchParams.get('token'), token)) return response(res, 403, 'Abertura expirada. Reabra o VoaDesk.');
         bootstrapped = true;
         lastHeartbeat = Date.now();
         return response(res, 303, '', undefined, { Location: '/', 'Set-Cookie': `farol=${cookie}; HttpOnly; SameSite=Strict; Path=/` });
       }
       const cookies = String(req.headers.cookie ?? '').split(';').map(x => x.trim());
-      if (!cookies.some(x => equal(x, `farol=${cookie}`))) return response(res, 401, 'Abra pelo aplicativo Farol.');
+      if (!cookies.some(x => equal(x, `farol=${cookie}`))) return response(res, 401, 'Abra pelo aplicativo VoaDesk.');
       if (req.method === 'POST' && (req.headers.origin !== origin || req.headers['x-farol-request'] !== '1')) return response(res, 403, 'Origem inválida.');
       if (url.pathname === '/api/heartbeat' && req.method === 'POST') {
         lastHeartbeat = Date.now();
@@ -120,6 +120,7 @@ export function openApp(url, dataDir = join(root, '.runtime')) {
   child.unref();
   const branding = join(root, 'dist/VoaDeskWindow.exe');
   if (existsSync(branding) && child.pid) { const helper = spawn(branding, [String(child.pid)], { stdio: 'ignore', windowsHide: true }); helper.unref(); }
+  return child;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
@@ -141,6 +142,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     try { openApp(host.bootstrapUrl); } catch (error) { console.error(error.message); await host.close(); process.exitCode = 1; }
   } else {
     // Bootstrap credential is not printed. CLI requires --open; tests import createHost.
-    console.log('Farol local pronto. Use npm start para abrir a janela.');
+    console.log('VoaDesk local pronto. Use npm start para abrir a janela.');
   }
 }
