@@ -4,6 +4,13 @@ using System.IO;
 using System.Windows.Forms;
 using System.Threading;
 public static class Launcher {
+    public static string DescribeError(Exception error) {
+        if(error is UnauthorizedAccessException)return "O Windows negou acesso a um arquivo do VoaDesk. A conta que abre o aplicativo precisa de permissao na configuracao local.\n\n"+error.Message;
+        if(error is System.Security.Cryptography.CryptographicException)return "A credencial do VoaDesk pertence a outra conta do Windows. Configure o operador para esta conta.";
+        var processError=error as System.ComponentModel.Win32Exception;
+        if(processError!=null&&(processError.NativeErrorCode==2||processError.NativeErrorCode==3))return "Node.js nao foi encontrado. Instale Node.js 22 ou posterior e abra o VoaDesk novamente.";
+        return error.Message;
+    }
     [STAThread] public static int Main() {
         try {
             string root=Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).FullName;
@@ -27,6 +34,6 @@ public static class Launcher {
                 mutex.ReleaseMutex();
             }
             return 0;
-        } catch (Exception e) { MessageBox.Show(e.Message + "\n\nInstale Node.js 22 ou posterior e Microsoft Edge.", "VoaDesk · Não foi possível iniciar", MessageBoxButtons.OK,MessageBoxIcon.Error); return 1; }
+        } catch (Exception e) { MessageBox.Show(DescribeError(e), "VoaDesk · Não foi possível iniciar", MessageBoxButtons.OK,MessageBoxIcon.Error); return 1; }
     }
 }
