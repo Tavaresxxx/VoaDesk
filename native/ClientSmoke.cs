@@ -27,6 +27,9 @@ public static class ClientSmoke {
                     var response=await client.PostAsync(new Uri(new Uri(args[0]),"v1/codes/verify"),new StringContent("{\"code\":\""+value+"\"}",Encoding.UTF8,"application/json"));
                     if(!response.IsSuccessStatusCode)throw new Exception("verify failed");
                 }
+                var deadline=Stopwatch.StartNew();
+                while(!form.Controls.OfType<Label>().Any(l=>l.Text=="Código já utilizado") && deadline.Elapsed.TotalSeconds<7) await Task.Delay(100);
+                if(!form.Controls.OfType<Label>().Any(l=>l.Text=="Código já utilizado"))throw new Exception("consumption status not observed");
                 Console.WriteLine("{\"codeDisplayed\":true,\"verifiedByService\":true,\"logoEmbedded\":"+logo.ToString().ToLower()+",\"iconEmbedded\":"+icon.ToString().ToLower()+",\"compact\":"+compact.ToString().ToLower()+",\"codeRedactedInScreenshot\":true}");
                 exit=icon&&logo&&compact?0:1;
             } catch { Console.WriteLine("{\"result\":\"failed\"}"); }
