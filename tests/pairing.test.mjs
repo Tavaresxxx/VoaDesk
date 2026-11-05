@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PairingRegistry } from '../src/pairing/registry.mjs';
 import { createPairingService } from '../src/pairing/service.mjs';
+import { probePairingService } from '../src/pairing/probe.mjs';
 test('código é temporário, de uso único e vinculado ao token do cliente', () => {
   let now = 1000000; const registry = new PairingRegistry({ now: () => now });
   const a = registry.register(), b = registry.register();
@@ -29,4 +30,10 @@ test('serviço permite cliente nativo, exige operador e rejeita reutilização',
   const state=await (await fetch(service.origin+'/v1/clients/status',{headers:{Authorization:`Bearer ${client.token}`}})).json(); assert.equal(state.state,'verified');
   assert.equal((await post('/v1/clients/revoke',{},client.token)).status,200);
   assert.equal((await (await fetch(service.origin+'/v1/clients/status',{headers:{Authorization:`Bearer ${client.token}`}})).json()).state,'expired');
+});
+test('autoteste exercita HTTP e não retorna códigos ou credenciais', async t => {
+  const service = await createPairingService(); t.after(() => service.close());
+  const result = await probePairingService(service.origin, service.operatorToken);
+  assert.equal(result.result, 'passed'); assert.equal(result.statuses.verification, 200); assert.equal(result.statuses.replayRejected, 404); assert.equal(result.statuses.revokedCodeRejected, 404);
+  assert.equal(JSON.stringify(result).includes(service.operatorToken), false); assert.equal(result.externalHttpsValidated, false);
 });
