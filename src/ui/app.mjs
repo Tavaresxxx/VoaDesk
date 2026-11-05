@@ -131,7 +131,7 @@ const verifyButton = $('verify-code');
 const accessMessage = $('access-message');
 fetch('/api/pairing/config').then(r => r.json()).then(config => {
   verifyButton.disabled = !config.available;
-  accessMessage.textContent = config.available ? (config.remote ? 'Serviço online. Informe o código do VoaDesk Cliente.' : 'Serviço local. Abra o VoaDesk Cliente neste computador para testar.') : 'Serviço de códigos não configurado nesta execução.';
+  accessMessage.textContent = config.available ? (config.remote ? 'Serviço de códigos configurado. Informe o código do VoaDesk Cliente.' : 'Serviço local. Abra o VoaDesk Cliente neste computador para testar.') : 'Serviço de códigos não configurado nesta execução.';
 }).catch(() => { accessMessage.textContent = 'Não foi possível consultar o serviço de códigos.'; });
 $('access-code').addEventListener('input', event => { const value = event.target.value.toUpperCase().replace(/[^23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g, '').slice(0,12); event.target.value = value.match(/.{1,4}/g)?.join(' ') ?? ''; });
 $('access-form').addEventListener('submit', async event => {
