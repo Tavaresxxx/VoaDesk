@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-05",
+  "state": "blocked-on-render-github-repository-access",
+  "workspace": "Matheus's workspace",
+  "workspaceId": "tea-dbcelj0m7kps73fgjmv0",
+  "projectId": "prj-dbmcggegekts73chkcv0",
+  "repository": "https://github.com/Tavaresxxx/VoaDesk",
+  "requestedPlan": "free",
+  "serviceCreated": false,
+  "live": false,
+  "publicUrl": null,
+  "clientBuiltEndpoint": "http://127.0.0.1:47832",
+  "crossComputerPairingValidated": false,
+  "lastError": "HTTP 400: repository URL is invalid or unfetchable",
+  "confirmedByUser": "Repository did not appear in Render New Web Service list",
+  "requiredAction": "Include VoaDesk in the Render GitHub App Repository access settings; preserve private visibility",
+  "localValidation": "artifacts/voadesk/client-smoke.json"
+}
