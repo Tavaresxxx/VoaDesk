@@ -1,0 +1,11 @@
+{
+    "result":  "passed",
+    "date":  "2026-11-05",
+    "cause":  "Configuration DACL granted the executor account but omitted the intended desktop user",
+    "credentialPreserved":  true,
+    "configuredDesktopOwnerRetainedOnUpdates":  true,
+    "broadGroupsExcluded":  true,
+    "specificPermissionError":  true,
+    "visibleDesktopWindowConfirmed":  "VoaDesk · Suporte remoto",
+    "appLeftOpen":  true
+}
