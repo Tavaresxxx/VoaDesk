@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { productionAuth } from './production-auth.mjs';
 const {origin,token}=await productionAuth();
+const expectedVersion=JSON.parse(await readFile(resolve('package.json'),'utf8')).version;
+const expectedIndex=process.argv.indexOf('--expect-commit'),expectedCommit=expectedIndex<0?null:process.argv[expectedIndex+1];
+if(expectedIndex>=0&&!/^[a-f0-9]{40}$/.test(expectedCommit??''))throw new Error('Informe a revisão completa esperada.');
 const evidence={date:new Date().toISOString(),origin,scope:'external-production-https',checks:[],crossComputerValidated:false};
 const clients=[];let sessionToken;
 const api=async(path,payload,bearer,headers={})=>{
@@ -13,7 +16,8 @@ const api=async(path,payload,bearer,headers={})=>{
 };
 const check=(name,value)=>{assert.ok(value,name);evidence.checks.push({name,result:'passed'});};
 try{
-  const health=await api('/health');check('HTTPS responde 200 e versão 0.5.0',health.status===200&&health.data.version==='0.5.0');
+  const health=await api('/health');check('HTTPS responde 200 e versão '+expectedVersion,health.status===200&&health.data.version===expectedVersion);
+  if(expectedCommit)check('Revisão publicada corresponde ao commit esperado',health.data.release===expectedCommit);
   check('Sinalização LAN habilitada e armazenamento declarado',health.data.sessionsEnabled&&health.data.deviceStorage==='derived-memory'&&health.data.serverHistoryPersistent===false);
   evidence.release=health.data.release;evidence.healthLatencyMs=health.elapsedMs;
   check('Origem de navegador externa recusada',(await api('/v2/clients',{},undefined,{Origin:'https://evil.invalid'})).status===403);
