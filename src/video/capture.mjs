@@ -2,7 +2,18 @@ import { peer,prefer,gather,applyQuality } from './shared.mjs';
 import { StatsSampler } from './stats.mjs';
 import { QualityPolicy } from './quality.mjs';
 const $=id=>document.getElementById(id),post=(route,value)=>fetch('/support/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-VoaDesk':'1'},body:JSON.stringify(value)});
-let pc,stream,sender,control,closed=false,applied=false,lastStats={},busy=false,inputQueue=Promise.resolve(),qualityQueue=Promise.resolve(),queued=0;const policy=new QualityPolicy(),sampler=new StatsSampler();
+let pc,stream,sender,control,closed=false,applied=false,lastStats={},busy=false,qualityQueue=Promise.resolve(),inputSending=false;const pendingInput=[],policy=new QualityPolicy(),sampler=new StatsSampler();
+async function flushInput(){
+  if(inputSending||closed)return;inputSending=true;
+  try{while(pendingInput.length&&!closed){const events=pendingInput.splice(0,8),r=await post('input',{events});if(!r.ok&&r.status!==400)throw new Error();}}
+  catch{await stop();}finally{inputSending=false;}
+}
+function queueInput(data){
+  if(closed)return;
+  if(data.type==='move'&&pendingInput.at(-1)?.type==='move')pendingInput.pop();
+  if(pendingInput.length>=64)throw new Error('Fila de entrada excedida.');
+  pendingInput.push(data);void flushInput();
+}
 const adjust=()=>qualityQueue=qualityQueue.catch(()=>{}).then(()=>applyQuality(sender,stream.getVideoTracks()[0],policy));
 async function stop(notify=true){if(closed)return;closed=true;clearInterval(timer);stream?.getTracks().forEach(t=>t.stop());pc?.close();$('share').disabled=true;$('status').textContent='Atendimento encerrado. Sua tela não está sendo compartilhada.';if(notify)await post('end',{}).catch(()=>{});}
 $('end').onclick=()=>void stop();
@@ -21,7 +32,7 @@ $('share').onclick=async()=>{
         try {const data=JSON.parse(event.data);
           if(data.type==='quality'){policy.choose(data.preference,data.automatic);await adjust();return;}
           if(data.type==='feedback'){const text=policy.sample({...lastStats,...data.stats});if(text){await adjust();control?.send(JSON.stringify({type:'qualityNotice',text,level:policy.level}));}return;}
-          if(++queued>64)throw new Error();inputQueue=inputQueue.then(async()=>{const r=await post('input',data);queued--;if(!r.ok&&r.status!==400)await stop();}).catch(()=>stop());
+          queueInput(data);
         }catch{await stop();}
       };
     };

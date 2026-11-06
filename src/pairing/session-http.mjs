@@ -30,7 +30,11 @@ export function sessionRouter(hub, { root, isOperator, enabled, allow = () => tr
         const payload=await readJson(req, res, path==='/support/signal'?110000:2048);
         if(path==='/support/signal')hub.signal(s,'capture',payload);
         else if(path==='/support/end')hub.end(s,'stopped');
-        else if(path==='/support/input'){if(payload.type!=='release'&&payload.permissionRevision!==s.permissionRevision)throw new Error('INVALID');hub.input(s,payload);}
+        else if(path==='/support/input'){
+          const events=payload.events===undefined?[payload]:payload.events;
+          if(!Array.isArray(events)||events.length<1||events.length>8||events.some(e=>!e||(e.type!=='release'&&e.permissionRevision!==s.permissionRevision)))throw new Error('INVALID');
+          try{for(const event of events)hub.input(s,event);}catch(error){if(payload.events!==undefined)hub.end(s,'invalid-input');throw error;}
+        }
         else if(path==='/support/stats'){s.stats={};for(const field of ['capturedFps','encodedFps','encodeMs','bitrateMbps','width','height','rttMs','qualityLimitation','encoder','powerEfficientEncoder']){const v=payload[field];if(typeof v==='number'&&Number.isFinite(v)||typeof v==='boolean'||typeof v==='string'&&v.length<100)s.stats[field]=v;}if(s.state==='approved')s.state='active';}
         else throw new Error('INVALID');
         json(res,200,{ok:true});return true;

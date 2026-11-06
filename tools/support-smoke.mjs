@@ -15,6 +15,7 @@ const service=production?{origin:auth.origin,operatorToken:auth.token,close:asyn
 const api=async(route,body,token)=>{const r=await fetch(service.origin+route,{method:body===null?'GET':'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body===null?{}:{body:JSON.stringify(body)})});return {status:r.status,data:await r.json()};};
 const client=(await api('/v2/clients',{deviceId:randomBytes(16).toString('hex'),secret:randomBytes(32).toString('base64url')})).data;
 let browser,poll;const events=[],evidence={date:new Date().toISOString(),source:'synthetic-canvas-1920x1080',scope:production?'production-https-two-pages-one-computer':'two-browser-pages-localhost',realDesktopCaptureValidated:false,realInputInjectionValidated:false,externalNetworkValidated:production,crossComputerValidated:false,assertions:[]};
+const waitEvents=async predicate=>{const deadline=Date.now()+5000;while(!predicate()&&Date.now()<deadline)await new Promise(r=>setTimeout(r,30));assert.ok(predicate(),'Comandos esperados não chegaram no prazo de 5 s.');};
 try {
  const {chromium}=await import(pathToFileURL(resolve(process.env.FAROL_PLAYWRIGHT)).href);
  browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--disable-features=WebRtcHideLocalIpsWithMdns','--autoplay-policy=no-user-gesture-required']});
@@ -41,8 +42,15 @@ try {
  await tech.waitForFunction(()=>document.getElementById('diagnostic-details').textContent.includes('video/H264'),null,{timeout:15000});
  await tech.locator('#session-profile').selectOption('quality');await tech.locator('#auto-quality').uncheck();
  await tech.locator('#remote-keyboard').focus();await tech.keyboard.insertText('Ação, café e ç.');await tech.keyboard.down('Control');await tech.keyboard.press('c');await tech.keyboard.up('Control');await tech.locator('#check-connection').click();
- await tech.waitForTimeout(500);assert.ok(events.some(e=>e.type==='text'&&e.text.includes('Ação')));assert.ok(events.some(e=>e.type==='keyDown'&&e.code==='ControlLeft'));assert.ok(events.some(e=>e.type==='release'));
- await tech.locator('#guide-mode').click();await tech.locator('#remote-video').click({position:{x:200,y:160}});await tech.waitForTimeout(500);assert.ok(events.some(e=>e.type==='guide'));
+ await waitEvents(()=>events.some(e=>e.type==='text'&&e.text.includes('Ação'))&&events.some(e=>e.type==='keyDown'&&e.code==='ControlLeft')&&events.some(e=>e.type==='release'));
+ if(production){
+   await tech.locator('#remote-video').hover();const box=await tech.locator('#remote-video').boundingBox(),at=Date.now();
+   for(let i=0;i<120;i++){await tech.mouse.move(box.x+box.width*.5+Math.sin(i/5)*25,box.y+box.height*.5+Math.cos(i/5)*25);await tech.waitForTimeout(20);}
+   await waitEvents(()=>events.some(e=>e.type==='move'));
+   const state=await tech.evaluate(async()=>{const r=await fetch('/api/session/state',{method:'POST',headers:{'X-Farol-Request':'1'},body:'{}'});return r.json();});assert.ok(['approved','active'].includes(state.state));
+   evidence.pointerBurst={generatedMoves:120,elapsedMs:Date.now()-at,observedMoves:events.filter(e=>e.type==='move').length,sessionSurvived:true};
+ }
+ await tech.locator('#guide-mode').click();await tech.locator('#remote-video').click({position:{x:200,y:160}});await waitEvents(()=>events.some(e=>e.type==='guide'));
  await api('/v3/client/decision',{id:pending.id,permission:'view'},client.token);await tech.waitForFunction(()=>document.getElementById('permission-status').textContent==='Somente visualização');
  const before=events.filter(e=>e.type==='text').length;await tech.locator('#remote-keyboard').focus();await tech.keyboard.insertText('não transmitir');await tech.waitForTimeout(500);assert.equal(events.filter(e=>e.type==='text').length,before);
  await tech.locator('#access-code').fill('');

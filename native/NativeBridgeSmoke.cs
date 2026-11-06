@@ -36,7 +36,8 @@ public static class NativeBridgeSmoke {
        await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/release"));await Task.Delay(350);
        if(sent.Count!=afterRevoke||sent.Any(i=>i.type==1&&i.data.key.scan==44&&(i.data.key.flags&2)==0))throw new Exception("Stale response restored input after revocation.");
       }
-      var end=await tech.PostAsync(new Uri(new Uri(args[0]),"v3/operator/end"),new StringContent("{}",Encoding.UTF8,"application/json"));end.EnsureSuccessStatusCode();await Task.Delay(300);
+      var end=await tech.PostAsync(new Uri(new Uri(args[0]),"v3/operator/end"),new StringContent("{}",Encoding.UTF8,"application/json"));end.EnsureSuccessStatusCode();deadline.Restart();
+      while((!sent.Any(i=>i.type==0&&i.data.mouse.flags==4)||!sent.Any(i=>i.type==1&&(i.data.key.flags&2)!=0&&i.data.key.scan==29))&&deadline.Elapsed.TotalSeconds<3)await Task.Delay(30);
       if(!sent.Any(i=>i.type==0&&i.data.mouse.flags==4)||!sent.Any(i=>i.type==1&&(i.data.key.flags&2)!=0&&i.data.key.scan==29))throw new Exception("Release not observed.");result=0;
      }
     }

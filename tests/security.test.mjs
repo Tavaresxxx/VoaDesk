@@ -135,6 +135,21 @@ test('segurança: orientação não ultrapassa limite de fila e encerra controle
   assert.deepEqual(hub.current.commands, []);
 });
 
+test('segurança: lotes preservam ordem, recusam revisão antiga e limpam entradas em lote inválido',async t=>{
+  const{service,client}=await setup(t);const request=service.sessions.request(client.code),decision=service.sessions.decide(client.token,request.id,'control');
+  const boot=await fetch(service.origin+'/support/bootstrap?ticket='+decision.ticket,{redirect:'manual'});
+  const headers={Cookie:boot.headers.get('set-cookie').split(';')[0],Origin:service.origin,'X-VoaDesk':'1'};
+  const send=events=>fetch(service.origin+'/support/input',{method:'POST',headers,body:JSON.stringify({events})});
+  const event=(type,extra={})=>({type,permissionRevision:1,...extra});
+  assert.equal((await send([event('keyDown',{code:'ControlLeft'}),event('keyUp',{code:'ControlLeft'}),event('release')])).status,200);
+  assert.deepEqual(service.sessions.commands(client.token).commands.map(x=>x.type),['keyDown','keyUp','release']);
+  assert.equal((await send([event('keyDown',{code:'KeyA'}),{type:'keyUp',code:'KeyA',permissionRevision:0}])).status,400);
+  assert.deepEqual(service.sessions.commands(client.token).commands,[]);
+  assert.equal((await send(Array.from({length:9},()=>event('release')))).status,400);
+  assert.equal((await send([event('keyDown',{code:'KeyA'}),event('execute-shell')])).status,400);
+  assert.equal(service.sessions.current.permission,'none');assert.deepEqual(service.sessions.current.commands,[]);
+});
+
 test('segurança: flood autenticado retorna 429 e preserva health e outro participante', async t => {
   const { service, client, post } = await setup(t);
   const r = service.sessions.request(client.code);
