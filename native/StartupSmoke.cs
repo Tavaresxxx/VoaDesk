@@ -19,6 +19,8 @@ public static class StartupSmoke {
             var second=json.Deserialize<Dictionary<string,string>>(File.ReadAllText(file));
             Check(first["ownerSid"]==second["ownerSid"]&&second["ownerSid"]==owner.Value);
             Check(Token(first)==Token(second));
+            string beforeCopy=File.ReadAllText(file),copy=Path.Combine(folder,"fixture-user-settings.json");
+            try{OperatorSettings.CopyForCurrentUser(file,copy);Check(OperatorSettings.ReadToken(copy)==Token(second));Check(File.ReadAllText(file)==beforeCopy);OperatorSettings.CopyForCurrentUser(file,copy);Check(File.GetAccessControl(copy).AreAccessRulesProtected);}finally{if(File.Exists(copy))File.Delete(copy);}
             bool ownerAllowed=false;var acl=File.GetAccessControl(file,AccessControlSections.Access);
             foreach(FileSystemAccessRule rule in acl.GetAccessRules(true,true,typeof(SecurityIdentifier))) {
                 string sid=rule.IdentityReference.Value;

@@ -4,5 +4,8 @@ node_modules/
 .cache/
 .runtime/
 dist/
+src/assets/
+instalação/
+instalacao/
 artifacts/*.png
 artifacts/*-raw.json

@@ -1,0 +1,1 @@
+using System;using System.IO;using System.IO.Compression;public static class PackageZip{public static int Main(string[] a){if(a.Length!=2)throw new ArgumentException();ZipFile.CreateFromDirectory(Path.GetFullPath(a[0]),Path.GetFullPath(a[1]),CompressionLevel.Optimal,true);return 0;}}

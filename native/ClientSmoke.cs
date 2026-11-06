@@ -10,31 +10,35 @@ using System.Windows.Forms;
 public static class ClientSmoke {
     [STAThread] public static int Main(string[] args) {
         Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
-        var form=new ClientWindow(args[0]); var timer=new Timer { Interval=200 }; var elapsed=Stopwatch.StartNew(); bool running=false; int exit=1;
-        timer.Tick+=async delegate {
-            if(running)return;
-            var label=form.Controls.OfType<Label>().FirstOrDefault(l=>Regex.IsMatch(l.Text,@"^[A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4}$"));
-            if(label==null) { if(elapsed.Elapsed.TotalSeconds>20) { timer.Stop(); form.Close(); } return; }
-            running=true; timer.Stop(); string value=label.Text;
-            try {
-                bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=700 && form.ClientSize.Height<=600;
-                // Evidence image contains a placeholder, never the active access code.
-                label.Text="XXXX XXXX XXXX";
-                using(var bitmap=new Bitmap(form.Width,form.Height)) { form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height)); bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png); }
-                label.Text=value;
-                using(var client=new HttpClient()) {
-                    client.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("VOADESK_TEST_OPERATOR_TOKEN"));
-                    var response=await client.PostAsync(new Uri(new Uri(args[0]),"v1/codes/verify"),new StringContent("{\"code\":\""+value+"\"}",Encoding.UTF8,"application/json"));
-                    if(!response.IsSuccessStatusCode)throw new Exception("verify failed");
-                }
-                var deadline=Stopwatch.StartNew();
-                while(!form.Controls.OfType<Label>().Any(l=>l.Text=="Código já utilizado") && deadline.Elapsed.TotalSeconds<7) await Task.Delay(100);
-                if(!form.Controls.OfType<Label>().Any(l=>l.Text=="Código já utilizado"))throw new Exception("consumption status not observed");
-                Console.WriteLine("{\"codeDisplayed\":true,\"verifiedByService\":true,\"logoEmbedded\":"+logo.ToString().ToLower()+",\"iconEmbedded\":"+icon.ToString().ToLower()+",\"compact\":"+compact.ToString().ToLower()+",\"codeRedactedInScreenshot\":true}");
-                exit=icon&&logo&&compact?0:1;
-            } catch { Console.WriteLine("{\"result\":\"failed\"}"); }
-            form.Close();
-        };
-        timer.Start(); Application.Run(form); timer.Dispose(); return exit;
+        string previous=null; bool all=true;
+        for(int attempt=0;attempt<2;attempt++) {
+            var form=new ClientWindow(args[0],args[2]); var timer=new Timer { Interval=200 }; var elapsed=Stopwatch.StartNew(); bool running=false, passed=false;
+            timer.Tick+=async delegate {
+                if(running)return;
+                var label=form.Controls.OfType<Label>().FirstOrDefault(l=>Regex.IsMatch(l.Text,@"^[A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4}$"));
+                if(label==null) { if(elapsed.Elapsed.TotalSeconds>20) { timer.Stop(); form.Close(); } return; }
+                running=true; timer.Stop(); string value=label.Text;
+                try {
+                    if(previous!=null&&value!=previous)throw new Exception();
+                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=700&&form.ClientSize.Height<=600;
+                    label.Text="XXXX XXXX XXXX XXXX";
+                    using(var bitmap=new Bitmap(form.Width,form.Height)) { form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height)); bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png); }
+                    label.Text=value;
+                    using(var client=new HttpClient()) {
+                        client.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("VOADESK_TEST_OPERATOR_TOKEN"));
+                        for(int i=0;i<2;i++) {
+                            var response=await client.PostAsync(new Uri(new Uri(args[0]),"v2/codes/verify"),new StringContent("{\"code\":\""+value+"\"}",Encoding.UTF8,"application/json"));
+                            if(!response.IsSuccessStatusCode)throw new Exception();
+                        }
+                    }
+                    if(label.Text!=value)throw new Exception();
+                    previous=value; passed=icon&&logo&&compact;
+                } catch { passed=false; }
+                form.Close();
+            };
+            timer.Start(); Application.Run(form); timer.Dispose(); all=all&&passed;
+        }
+        Console.WriteLine(all?"{\"result\":\"passed\",\"codeDisplayed\":true,\"verifiedByService\":true,\"sameCodeAfterReopen\":true,\"repeatIdentification\":true,\"logoEmbedded\":true,\"iconEmbedded\":true,\"compact\":true,\"codeRedactedInScreenshot\":true}":"{\"result\":\"failed\"}");
+        return all?0:1;
     }
 }

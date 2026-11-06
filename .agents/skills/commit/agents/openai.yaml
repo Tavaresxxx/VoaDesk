@@ -1,0 +1,6 @@
+﻿interface:
+  display_name: "Publicar VoaDesk"
+  short_description: "Validar, enviar ao GitHub e publicar no Render"
+  default_prompt: "Use $commit para validar e publicar as alteracoes do VoaDesk no GitHub e no Render."
+policy:
+  allow_implicit_invocation: false

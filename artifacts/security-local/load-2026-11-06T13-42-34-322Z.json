@@ -1,0 +1,688 @@
+{
+  "date": "2026-11-06T13:42:34.322Z",
+  "scope": "disposable-localhost-http-only",
+  "hardware": {
+    "cpu": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+    "logicalCpus": 8,
+    "memoryGiB": 16,
+    "node": "24.21.0"
+  },
+  "stages": [
+    {
+      "name": "health-ramp",
+      "concurrency": 1,
+      "durationMs": 3001,
+      "responses": 12317,
+      "responsesPerSecond": 4104,
+      "statuses": {
+        "200": 12317
+      },
+      "errors": {},
+      "latencyP50Ms": 0.13999999999987267,
+      "latencyP95Ms": 0.5261999999997897,
+      "latencyP99Ms": 0.6809999999995853,
+      "peakRssMiB": 64.3984375,
+      "eventLoopP99MaxMs": 32.702463
+    },
+    {
+      "name": "health-ramp",
+      "concurrency": 8,
+      "durationMs": 3002,
+      "responses": 10964,
+      "responsesPerSecond": 3653,
+      "statuses": {
+        "200": 10964
+      },
+      "errors": {},
+      "latencyP50Ms": 2.3662999999996828,
+      "latencyP95Ms": 3.288300000000163,
+      "latencyP99Ms": 3.6333999999997104,
+      "peakRssMiB": 67.59765625,
+      "eventLoopP99MaxMs": 20.758527
+    },
+    {
+      "name": "health-ramp",
+      "concurrency": 32,
+      "durationMs": 3004,
+      "responses": 12664,
+      "responsesPerSecond": 4216,
+      "statuses": {
+        "200": 12664
+      },
+      "errors": {},
+      "latencyP50Ms": 7.397600000000239,
+      "latencyP95Ms": 12.042100000000573,
+      "latencyP99Ms": 12.96559999999954,
+      "peakRssMiB": 68.0234375,
+      "eventLoopP99MaxMs": 20.938751
+    },
+    {
+      "name": "health-ramp",
+      "concurrency": 128,
+      "durationMs": 3014,
+      "responses": 12325,
+      "responsesPerSecond": 4090,
+      "statuses": {
+        "200": 12325
+      },
+      "errors": {},
+      "latencyP50Ms": 32.08690000000024,
+      "latencyP95Ms": 45.86540000000059,
+      "latencyP99Ms": 54.74879999999939,
+      "peakRssMiB": 69.11328125,
+      "eventLoopP99MaxMs": 21.823487
+    },
+    {
+      "name": "health-ramp",
+      "concurrency": 384,
+      "durationMs": 3037,
+      "responses": 10354,
+      "responsesPerSecond": 3409,
+      "statuses": {
+        "200": 10354
+      },
+      "errors": {},
+      "latencyP50Ms": 112.0568000000003,
+      "latencyP95Ms": 139.3765999999996,
+      "latencyP99Ms": 154.57310000000143,
+      "peakRssMiB": 72.26171875,
+      "eventLoopP99MaxMs": 22.757375
+    },
+    {
+      "name": "health-ramp",
+      "concurrency": 640,
+      "durationMs": 3055,
+      "responses": 7671,
+      "responsesPerSecond": 2511,
+      "statuses": {
+        "200": 7671
+      },
+      "errors": {
+        "ECONNRESET": 1917
+      },
+      "latencyP50Ms": 199.57880000000296,
+      "latencyP95Ms": 269.78640000000087,
+      "latencyP99Ms": 364.96470000000045,
+      "peakRssMiB": 81.12109375,
+      "eventLoopP99MaxMs": 34.373631
+    },
+    {
+      "name": "host-authenticated",
+      "concurrency": 16,
+      "durationMs": 3001,
+      "responses": 12487,
+      "responsesPerSecond": 4160,
+      "statuses": {
+        "200": 12487
+      },
+      "errors": {},
+      "latencyP50Ms": 3.591899999999441,
+      "latencyP95Ms": 6.39719999999943,
+      "latencyP99Ms": 6.954299999997602,
+      "peakRssMiB": 82.15234375,
+      "eventLoopP99MaxMs": 31.014911
+    },
+    {
+      "name": "host-over-capacity",
+      "concurrency": 48,
+      "durationMs": 3004,
+      "responses": 5027,
+      "responsesPerSecond": 1673,
+      "statuses": {
+        "200": 5027
+      },
+      "errors": {
+        "ECONNRESET": 5040
+      },
+      "latencyP50Ms": 13.39379999999801,
+      "latencyP95Ms": 19.11750000000029,
+      "latencyP99Ms": 22.516499999997905,
+      "peakRssMiB": 81.58984375,
+      "eventLoopP99MaxMs": 25.001983
+    },
+    {
+      "name": "session-rate-limit",
+      "concurrency": 32,
+      "durationMs": 3014,
+      "responses": 13451,
+      "responsesPerSecond": 4462,
+      "statuses": {
+        "200": 1200,
+        "429": 12251
+      },
+      "errors": {},
+      "latencyP50Ms": 6.600200000000768,
+      "latencyP95Ms": 12.150900000000547,
+      "latencyP99Ms": 13.24539999999979,
+      "peakRssMiB": 82.4921875,
+      "eventLoopP99MaxMs": 31.965183
+    },
+    {
+      "name": "health-soak",
+      "concurrency": 32,
+      "durationMs": 30002,
+      "responses": 154306,
+      "responsesPerSecond": 5143,
+      "statuses": {
+        "200": 154306
+      },
+      "errors": {},
+      "latencyP50Ms": 5.579799999999523,
+      "latencyP95Ms": 10.989600000000792,
+      "latencyP99Ms": 11.93409999999858,
+      "peakRssMiB": 82.2421875,
+      "eventLoopP99MaxMs": 31.637503
+    },
+    {
+      "name": "recovery",
+      "concurrency": 8,
+      "durationMs": 2001,
+      "responses": 8715,
+      "responsesPerSecond": 4355,
+      "statuses": {
+        "200": 8715
+      },
+      "errors": {},
+      "latencyP50Ms": 1.8115000000034343,
+      "latencyP95Ms": 2.94539999999688,
+      "latencyP99Ms": 3.19720000000234,
+      "peakRssMiB": 82.2421875,
+      "eventLoopP99MaxMs": 33.013759
+    },
+    {
+      "name": "after-slow-uploads",
+      "concurrency": 8,
+      "durationMs": 2000,
+      "responses": 9140,
+      "responsesPerSecond": 4569,
+      "statuses": {
+        "200": 9140
+      },
+      "errors": {},
+      "latencyP50Ms": 1.5466000000014901,
+      "latencyP95Ms": 3.032099999996717,
+      "latencyP99Ms": 3.254000000000815,
+      "peakRssMiB": 81.9609375,
+      "eventLoopP99MaxMs": 38.404095
+    }
+  ],
+  "realVideoOrInputValidated": false,
+  "externalNetworkValidated": false,
+  "slowUploads": {
+    "concurrent": 128,
+    "timeouts": 128,
+    "elapsedMs": 5095
+  },
+  "metrics": [
+    {
+      "type": "metric",
+      "rssMiB": 60.1953125,
+      "heapMiB": 9.024894714355469,
+      "eventLoopP99Ms": 32.571391,
+      "cpuOneCorePercent": 4.793083101775828
+    },
+    {
+      "type": "metric",
+      "rssMiB": 63.27734375,
+      "heapMiB": 11.20513916015625,
+      "eventLoopP99Ms": 32.702463,
+      "cpuOneCorePercent": 59.34650985977711
+    },
+    {
+      "type": "metric",
+      "rssMiB": 64.12890625,
+      "heapMiB": 10.702186584472656,
+      "eventLoopP99Ms": 20.479999,
+      "cpuOneCorePercent": 45.1899255928963
+    },
+    {
+      "type": "metric",
+      "rssMiB": 64.3984375,
+      "heapMiB": 11.534858703613281,
+      "eventLoopP99Ms": 20.463615,
+      "cpuOneCorePercent": 63.92457900062575
+    },
+    {
+      "type": "metric",
+      "rssMiB": 67.4140625,
+      "heapMiB": 12.655326843261719,
+      "eventLoopP99Ms": 20.447231,
+      "cpuOneCorePercent": 70.40713928392336
+    },
+    {
+      "type": "metric",
+      "rssMiB": 67.59765625,
+      "heapMiB": 12.762809753417969,
+      "eventLoopP99Ms": 20.594687,
+      "cpuOneCorePercent": 82.81728396716396
+    },
+    {
+      "type": "metric",
+      "rssMiB": 67.4296875,
+      "heapMiB": 12.00360107421875,
+      "eventLoopP99Ms": 20.758527,
+      "cpuOneCorePercent": 82.79406366563522
+    },
+    {
+      "type": "metric",
+      "rssMiB": 67.80859375,
+      "heapMiB": 13.365249633789062,
+      "eventLoopP99Ms": 20.365311,
+      "cpuOneCorePercent": 70.29247167628345
+    },
+    {
+      "type": "metric",
+      "rssMiB": 67.94921875,
+      "heapMiB": 12.326423645019531,
+      "eventLoopP99Ms": 20.512767,
+      "cpuOneCorePercent": 73.50369723597096
+    },
+    {
+      "type": "metric",
+      "rssMiB": 68.0234375,
+      "heapMiB": 12.826759338378906,
+      "eventLoopP99Ms": 20.938751,
+      "cpuOneCorePercent": 81.20300451116694
+    },
+    {
+      "type": "metric",
+      "rssMiB": 69.109375,
+      "heapMiB": 11.300102233886719,
+      "eventLoopP99Ms": 21.823487,
+      "cpuOneCorePercent": 64.10332696266939
+    },
+    {
+      "type": "metric",
+      "rssMiB": 69.109375,
+      "heapMiB": 13.571220397949219,
+      "eventLoopP99Ms": 20.365311,
+      "cpuOneCorePercent": 73.40628357787429
+    },
+    {
+      "type": "metric",
+      "rssMiB": 69.11328125,
+      "heapMiB": 13.405181884765625,
+      "eventLoopP99Ms": 20.660223,
+      "cpuOneCorePercent": 71.89321328066617
+    },
+    {
+      "type": "metric",
+      "rssMiB": 72.26171875,
+      "heapMiB": 12.498367309570312,
+      "eventLoopP99Ms": 22.757375,
+      "cpuOneCorePercent": 73.39003363343271
+    },
+    {
+      "type": "metric",
+      "rssMiB": 72.26171875,
+      "heapMiB": 14.211982727050781,
+      "eventLoopP99Ms": 22.085631,
+      "cpuOneCorePercent": 82.7946680233792
+    },
+    {
+      "type": "metric",
+      "rssMiB": 72.26171875,
+      "heapMiB": 14.117286682128906,
+      "eventLoopP99Ms": 20.398079,
+      "cpuOneCorePercent": 70.31649625002024
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.1171875,
+      "heapMiB": 12.108268737792969,
+      "eventLoopP99Ms": 33.472511,
+      "cpuOneCorePercent": 56.00652580478295
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.12109375,
+      "heapMiB": 11.626419067382812,
+      "eventLoopP99Ms": 31.997951,
+      "cpuOneCorePercent": 68.78794835144872
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.12109375,
+      "heapMiB": 13.784294128417969,
+      "eventLoopP99Ms": 34.373631,
+      "cpuOneCorePercent": 51.26123541767171
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.76953125,
+      "heapMiB": 16.752532958984375,
+      "eventLoopP99Ms": 31.014911,
+      "cpuOneCorePercent": 84.406018149094
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.8828125,
+      "heapMiB": 12.956428527832031,
+      "eventLoopP99Ms": 20.512767,
+      "cpuOneCorePercent": 73.40037434190903
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.15234375,
+      "heapMiB": 13.402137756347656,
+      "eventLoopP99Ms": 29.605887,
+      "cpuOneCorePercent": 82.79171254957382
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.58984375,
+      "heapMiB": 14.49554443359375,
+      "eventLoopP99Ms": 23.724031,
+      "cpuOneCorePercent": 53.0173235101136
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.58984375,
+      "heapMiB": 13.6011962890625,
+      "eventLoopP99Ms": 25.001983,
+      "cpuOneCorePercent": 35.916967175293564
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.58984375,
+      "heapMiB": 12.350776672363281,
+      "eventLoopP99Ms": 23.412735,
+      "cpuOneCorePercent": 39.1056272997684
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.171875,
+      "heapMiB": 17.29602813720703,
+      "eventLoopP99Ms": 28.033023,
+      "cpuOneCorePercent": 81.19479590294866
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.4765625,
+      "heapMiB": 13.9776611328125,
+      "eventLoopP99Ms": 31.965183,
+      "cpuOneCorePercent": 99.36718322681962
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.4921875,
+      "heapMiB": 16.111740112304688,
+      "eventLoopP99Ms": 28.721151,
+      "cpuOneCorePercent": 107.4476469314176
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2265625,
+      "heapMiB": 14.702171325683594,
+      "eventLoopP99Ms": 28.884991,
+      "cpuOneCorePercent": 79.74905364289596
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.234375,
+      "heapMiB": 14.419570922851562,
+      "eventLoopP99Ms": 20.496383,
+      "cpuOneCorePercent": 65.71584409001005
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.234375,
+      "heapMiB": 15.825904846191406,
+      "eventLoopP99Ms": 21.725183,
+      "cpuOneCorePercent": 68.69244383117854
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.234375,
+      "heapMiB": 17.962120056152344,
+      "eventLoopP99Ms": 20.250623,
+      "cpuOneCorePercent": 73.51278387311538
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.234375,
+      "heapMiB": 13.310874938964844,
+      "eventLoopP99Ms": 20.283391,
+      "cpuOneCorePercent": 82.6950548357212
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.234375,
+      "heapMiB": 15.135292053222656,
+      "eventLoopP99Ms": 20.987903,
+      "cpuOneCorePercent": 76.59813866523008
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.234375,
+      "heapMiB": 17.856346130371094,
+      "eventLoopP99Ms": 20.545535,
+      "cpuOneCorePercent": 68.80675682352009
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.23828125,
+      "heapMiB": 17.327865600585938,
+      "eventLoopP99Ms": 20.873215,
+      "cpuOneCorePercent": 70.28268234706994
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 16.997787475585938,
+      "eventLoopP99Ms": 20.611071,
+      "cpuOneCorePercent": 76.45451720771285
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 14.366401672363281,
+      "eventLoopP99Ms": 20.774911,
+      "cpuOneCorePercent": 76.66622428453692
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 16.53272247314453,
+      "eventLoopP99Ms": 20.561919,
+      "cpuOneCorePercent": 79.69030965834565
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 17.451309204101562,
+      "eventLoopP99Ms": 21.643263,
+      "cpuOneCorePercent": 70.28696176859195
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 12.8721923828125,
+      "eventLoopP99Ms": 20.742143,
+      "cpuOneCorePercent": 75.00965374243674
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 15.530899047851562,
+      "eventLoopP99Ms": 20.545535,
+      "cpuOneCorePercent": 76.50631177072084
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.513229370117188,
+      "eventLoopP99Ms": 20.512767,
+      "cpuOneCorePercent": 67.18169298866064
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.988739013671875,
+      "eventLoopP99Ms": 20.398079,
+      "cpuOneCorePercent": 73.49708951525545
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 14.841079711914062,
+      "eventLoopP99Ms": 20.316159,
+      "cpuOneCorePercent": 78.11375583240185
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.583816528320312,
+      "eventLoopP99Ms": 20.283391,
+      "cpuOneCorePercent": 68.71234760886536
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.582969665527344,
+      "eventLoopP99Ms": 20.660223,
+      "cpuOneCorePercent": 72.00050400352787
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 12.409904479980469,
+      "eventLoopP99Ms": 20.381695,
+      "cpuOneCorePercent": 77.98798205196582
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.153388977050781,
+      "eventLoopP99Ms": 22.200319,
+      "cpuOneCorePercent": 64.10860978629464
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.1741943359375,
+      "eventLoopP99Ms": 20.332543,
+      "cpuOneCorePercent": 71.9015530735464
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.742782592773438,
+      "eventLoopP99Ms": 22.085631,
+      "cpuOneCorePercent": 76.60100347314523
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.249885559082031,
+      "eventLoopP99Ms": 31.637503,
+      "cpuOneCorePercent": 73.4001394602652
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 12.928207397460938,
+      "eventLoopP99Ms": 21.037055,
+      "cpuOneCorePercent": 79.68699508240233
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 17.090499877929688,
+      "eventLoopP99Ms": 20.299775,
+      "cpuOneCorePercent": 75.00593296929807
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 14.465545654296875,
+      "eventLoopP99Ms": 20.529151,
+      "cpuOneCorePercent": 70.2898150058057
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 17.806076049804688,
+      "eventLoopP99Ms": 20.381695,
+      "cpuOneCorePercent": 76.50947187261737
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 15.307090759277344,
+      "eventLoopP99Ms": 20.299775,
+      "cpuOneCorePercent": 68.78431029882083
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 13.31158447265625,
+      "eventLoopP99Ms": 20.922367,
+      "cpuOneCorePercent": 73.42037415382796
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.2421875,
+      "heapMiB": 17.028541564941406,
+      "eventLoopP99Ms": 33.013759,
+      "cpuOneCorePercent": 76.59718122373084
+    },
+    {
+      "type": "metric",
+      "rssMiB": 82.1875,
+      "heapMiB": 14.51397705078125,
+      "eventLoopP99Ms": 20.889599,
+      "cpuOneCorePercent": 81.31000113013897
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.81640625,
+      "heapMiB": 16.50244903564453,
+      "eventLoopP99Ms": 38.731775,
+      "cpuOneCorePercent": 29.560053837119032
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.81640625,
+      "heapMiB": 16.507156372070312,
+      "eventLoopP99Ms": 34.406399,
+      "cpuOneCorePercent": 0
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.81640625,
+      "heapMiB": 16.51177978515625,
+      "eventLoopP99Ms": 34.668543,
+      "cpuOneCorePercent": 0
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.81640625,
+      "heapMiB": 16.51629638671875,
+      "eventLoopP99Ms": 32.620543,
+      "cpuOneCorePercent": 1.5884358691851566
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.81640625,
+      "heapMiB": 16.521377563476562,
+      "eventLoopP99Ms": 34.504703,
+      "cpuOneCorePercent": 0
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.9453125,
+      "heapMiB": 16.130950927734375,
+      "eventLoopP99Ms": 38.404095,
+      "cpuOneCorePercent": 56.23345328135688
+    },
+    {
+      "type": "metric",
+      "rssMiB": 81.9609375,
+      "heapMiB": 13.604713439941406,
+      "eventLoopP99Ms": 20.250623,
+      "cpuOneCorePercent": 65.5898270178293
+    }
+  ],
+  "result": "passed"
+}

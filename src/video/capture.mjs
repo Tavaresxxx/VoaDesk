@@ -1,0 +1,49 @@
+import { peer,prefer,gather,applyQuality } from './shared.mjs';
+import { StatsSampler } from './stats.mjs';
+import { QualityPolicy } from './quality.mjs';
+const $=id=>document.getElementById(id),post=(route,value)=>fetch('/support/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-VoaDesk':'1'},body:JSON.stringify(value)});
+let pc,stream,sender,control,closed=false,applied=false,lastStats={},busy=false,inputQueue=Promise.resolve(),qualityQueue=Promise.resolve(),queued=0;const policy=new QualityPolicy(),sampler=new StatsSampler();
+const adjust=()=>qualityQueue=qualityQueue.catch(()=>{}).then(()=>applyQuality(sender,stream.getVideoTracks()[0],policy));
+async function stop(notify=true){if(closed)return;closed=true;clearInterval(timer);stream?.getTracks().forEach(t=>t.stop());pc?.close();$('share').disabled=true;$('status').textContent='Atendimento encerrado. Sua tela não está sendo compartilhada.';if(notify)await post('end',{}).catch(()=>{});}
+$('end').onclick=()=>void stop();
+$('share').onclick=async()=>{
+  $('share').disabled=true;
+  try {
+    // Called directly from the explicit click; never bypass the browser selector.
+    stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'monitor',frameRate:{ideal:60,max:60}},audio:false,selfBrowserSurface:'exclude',surfaceSwitching:'exclude'});
+    if(closed){stream.getTracks().forEach(t=>t.stop());return;}
+    const track=stream.getVideoTracks()[0];if(track.getSettings().displaySurface!=='monitor')throw new Error('Selecione um monitor inteiro.');
+    track.onended=()=>void stop();
+    pc=peer();sender=pc.addTransceiver(track,{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
+    const wire=e=>{
+      if(e.channel.label==='control')control=e.channel;
+      e.channel.onmessage=async event=>{
+        try {const data=JSON.parse(event.data);
+          if(data.type==='quality'){policy.choose(data.preference,data.automatic);await adjust();return;}
+          if(data.type==='feedback'){const text=policy.sample({...lastStats,...data.stats});if(text){await adjust();control?.send(JSON.stringify({type:'qualityNotice',text,level:policy.level}));}return;}
+          if(++queued>64)throw new Error();inputQueue=inputQueue.then(async()=>{const r=await post('input',data);queued--;if(!r.ok&&r.status!==400)await stop();}).catch(()=>stop());
+        }catch{await stop();}
+      };
+    };
+    wire({channel:pc.createDataChannel('control',{ordered:true})});
+    wire({channel:pc.createDataChannel('pointer',{ordered:false,maxRetransmits:0})});
+    pc.onconnectionstatechange=()=>{if(['failed','disconnected','closed'].includes(pc.connectionState))void stop();};
+    await applyQuality(sender,track,policy);await pc.setLocalDescription(await pc.createOffer());await gather(pc);
+    if(closed)return;const r=await post('signal',pc.localDescription);if(!r.ok)throw new Error('Autorização encerrada.');
+    $('status').textContent='Conectando ao técnico…';
+  }catch(error){$('status').textContent=error.message;await stop();}
+};
+const timer=setInterval(async()=>{
+  if(closed||busy)return;busy=true;
+  try{
+    const response=await fetch('/support/state');if(!response.ok)throw new Error();
+    const state=await response.json();if(!['approved','active'].includes(state.state))throw new Error();
+    if(!pc){$('status').textContent=state.operatorName+' · '+(state.permission==='control'?'controle autorizado':'somente visualização')+'. Clique em escolher tela para começar.';$('share').disabled=false;}
+    if(pc&&state.answer&&!applied){applied=true;await pc.setRemoteDescription(state.answer);}
+    if(pc?.connectionState==='connected'){
+      $('status').textContent='Tela compartilhada · '+state.operatorName+' · '+(state.permission==='control'?'controle autorizado':'somente visualização');
+      lastStats=sampler.sample(await pc.getStats());await post('stats',lastStats);
+    }
+  }catch{await stop(false);}finally{busy=false;}
+},1000);
+window.addEventListener('pagehide',()=>{stream?.getTracks().forEach(t=>t.stop());pc?.close();void post('end',{});});

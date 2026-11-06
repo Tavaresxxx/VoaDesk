@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-06T14:19:06.135Z",
+  "scope": "native-loopback-fault-injection",
+  "osInputInjected": false,
+  "result": "passed",
+  "httpToNativeBridge": true,
+  "unicodeDelivered": true,
+  "heldKeyAndMouseReleasedOnEnd": true,
+  "staleResponseIgnored": true
+}

@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-06T13:48:43.482Z",
+  "result": "passed",
+  "realOsInputInjected": false,
+  "unicodeAccentsPreserved": true,
+  "releaseAll": true,
+  "normalizedCoordinates": true,
+  "signedUpdateVerified": true,
+  "tamperAndExpiryRejected": true,
+  "oversizedManifestRejectedBeforeBuffering": true,
+  "atomicReplaceAndPreviousPreserved": true,
+  "fullInstallerExecuted": false
+}

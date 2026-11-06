@@ -7,7 +7,25 @@ using System.Security.Principal;
 using System.Text;
 using System.Web.Script.Serialization;
 public static class OperatorSettings {
+    public static string ReadToken(string file) {
+        var values=new JavaScriptSerializer().Deserialize<Dictionary<string,string>>(File.ReadAllText(file));
+        return values.ContainsKey("protectedToken")?Encoding.UTF8.GetString(ProtectedData.Unprotect(Convert.FromBase64String(values["protectedToken"]),null,DataProtectionScope.CurrentUser)):values["token"];
+    }
+    public static void CopyForCurrentUser(string source,string target) {
+        string token=ReadToken(source);var values=new JavaScriptSerializer().Deserialize<Dictionary<string,string>>(File.ReadAllText(source));
+        if(File.Exists(target)){if(ReadToken(target)!=token)throw new Exception("A configuração existente do técnico foi preservada; credenciais diferentes.");return;}
+        var safe=new Dictionary<string,string>{{"server",values["server"]},{"ownerSid",WindowsIdentity.GetCurrent().User.Value}};
+        try{safe["protectedToken"]=Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(token),null,DataProtectionScope.CurrentUser));}
+        catch(CryptographicException){safe["token"]=token;safe["storage"]="windows-user-acl";}
+        Directory.CreateDirectory(Path.GetDirectoryName(target));var acl=new FileSecurity();acl.SetAccessRuleProtection(true,false);
+        acl.AddAccessRule(new FileSystemAccessRule(WindowsIdentity.GetCurrent().User,FileSystemRights.FullControl,AccessControlType.Allow));
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid,null),FileSystemRights.FullControl,AccessControlType.Allow));
+        using(var stream=new FileStream(target,FileMode.CreateNew,FileSystemRights.Write,FileShare.None,4096,FileOptions.None,acl))using(var writer=new StreamWriter(stream,new UTF8Encoding(false)))writer.Write(new JavaScriptSerializer().Serialize(safe));
+    }
     public static int Main(string[] args) {
+        // Private stdout is consumed only by local QA orchestration, never logged.
+        if(args.Length==2&&args[0]=="--read"){Console.Write(ReadToken(args[1]));return 0;}
+        if(args.Length==3&&args[0]=="--copy-to-user"){CopyForCurrentUser(args[1],args[2]);return 0;}
         if(args.Length<2)throw new ArgumentException("Informe o arquivo e o endereco do servidor.");
         var json=new JavaScriptSerializer(); string file=args[0]; Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(file)));
         Dictionary<string,string> settings; string token;

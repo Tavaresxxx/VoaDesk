@@ -1,69 +1,71 @@
-# VoaDesk
+# VoaDesk 0.4.1 — prévia para teste em rede local
 
-Aplicativo Windows de suporte remoto em desenvolvimento. A prévia 0.2 inclui **cliente compacto com código temporário reconhecido no painel do técnico**, identidade visual preta/branca/azul usando a logo fornecida e laboratório H.264 local.
+Atendimento Windows autorizado pelo cliente, com sinalização HTTPS e vídeo H.264/WebRTC direto entre os participantes. Esta versão prepara o teste manual entre **duas máquinas na mesma rede local**, ambas com internet. A conexão real entre os dois Windows precisa ser confirmada pelo procedimento abaixo; testes de pareamento ou de vídeo sintético não a substituem.
 
-Serviço de códigos publicado em **https://voadesk.onrender.com** no plano Free. O cliente compilado em `dist/VoaDeskCliente.exe` já aponta para esse endereço, e o principal neste workspace está configurado para usá-lo. A implantação e o autoteste HTTP interno do Render passaram; o teste HTTPS externo/entre duas máquinas não pôde ser executado pela rede restrita deste ambiente.
+O serviço de sinalização é `https://voadesk.onrender.com`. Não há TURN/STUN nesta prévia nem garantia de conexão entre redes distintas. O firewall e a topologia da LAN podem impedir a conexão direta. Não desative o firewall, Defender, UAC ou o sandbox do Edge para testar.
 
-**O pareamento de códigos funciona; transmissão e controle entre computadores ainda não estão implementados. Verificar um código não inicia captura nem autoriza acesso remoto.**
+## Arquivos para usar
 
-## Computador do cliente
+Execute `npm run package:installation` para gerar exatamente dois arquivos locais em `instalação/`:
 
-Envie apenas **`dist/VoaDeskCliente.exe`**. Não precisa de Node.js, Edge, pasta do projeto, instalação, permissões de administrador ou arquivos de imagem. Requer Windows 11 x64 com .NET Framework 4.8, normalmente incluído no Windows.
+- `VoaDeskCliente.exe`: entregue ao computador atendido. Contém o endpoint HTTPS e não contém credencial do técnico. Não requer Node.js instalado.
+- `VoaDeskTecnico.zip`: extraia a pasta completa no computador do suporte e execute `AbrirTecnico.bat`. O Node.js portátil e seus avisos de licença estão incluídos.
 
-Ao abrir, aparece uma janela compacta de aproximadamente 420 × 338 pixels lógicos: logo, código de 12 caracteres, validade de cinco minutos, copiar e novo código. A logo está incorporada ao arquivo. O ícone contém somente o símbolo V original, com base branca para manter o contraste na barra de tarefas.
+Os dois computadores precisam de Windows 11 x64, Edge e .NET Framework 4.8. O atendido precisa de um único monitor SDR. O técnico requer a credencial do operador provisionada na conta Windows; ela não faz parte dos arquivos distribuídos. O launcher lê primeiro a configuração privada do projeto e, quando ausente, `%LOCALAPPDATA%/VoaDesk/operator-settings.json`. Em outra conta de técnico é necessário provisionamento autorizado.
 
-O código é emitido pelo servidor, expira, só pode ser verificado uma vez e é revogado ao fechar a janela quando a rede permite; a expiração cobre falhas de revogação. Sem serviço disponível, o cliente mostra **Sem conexão**, nunca um código fictício.
+Não mova somente o executável do técnico para fora da pasta extraída. Não copie `.runtime`, identidades ou credenciais para os pacotes. `dist`, `.cache` e `instalação` ficam fora do repositório.
 
-O endereço do serviço é incorporado durante a compilação. O padrão é `https://voadesk.onrender.com`. Para desenvolvimento exclusivamente local, use `-PairingUrl http://127.0.0.1:47832` e o serviço local com o painel aberto **na mesma máquina**. HTTP externo e certificados inválidos são recusados. Não há credencial de operador no cliente.
+## Teste entre duas máquinas
 
-## Computador do técnico
+1. Deixe as duas máquinas na mesma LAN com acesso à internet. Extraia o técnico e abra `AbrirTecnico.bat`.
+2. No computador atendido, abra `VoaDeskCliente.exe` e envie seu código ao técnico.
+3. No técnico, informe o código e clique **Solicitar atendimento ao cliente**. Verificar código apenas identifica presença.
+4. No atendido, confira a solicitação e escolha **Permitir visualizar**. Na janela Edge, clique em escolher tela e selecione o monitor inteiro.
+5. Confirme que o técnico enxerga a imagem real da outra máquina e que texto/cliques não são aplicados no modo visualizar.
+6. Encerre e faça uma nova solicitação. Autorize **Permitir controle**, selecione o monitor e teste texto com acentos, mouse e rolagem em um aplicativo de teste sem dados reais.
+7. Retire controle com **Permitir visualizar** e confirme a liberação das teclas/botões. Encerre no cliente e confira a parada nas duas pontas.
+8. Desconecte a rede do atendido durante uma sessão de teste; confirme a interrupção e solicite nova autorização ao reconectar.
 
-Abra **`IniciarVoaDesk.bat`** ou `dist/VoaDesk.exe`. Requer Node.js 22+, Edge e .NET Framework 4.x. Na primeira execução a partir dos fontes, o `.bat` compila os componentes nativos. A janela principal oferece **Acessar computador → Verificar código** e mantém o laboratório de vídeo abaixo.
+Anote versão, Windows/Edge, quantidade de monitores, rede, resultado e tempos observados. Se a conexão falhar, registre o diagnóstico; não trate autorização, SDP ou código verificado como prova de imagem/controle funcionais.
 
-Sem configuração remota, inicia um serviço de códigos somente em `127.0.0.1:47832`; esse modo exige um cliente compilado para o endpoint local. A porta é fechada ao encerrar o host; o host encerra cerca de 90–95 segundos após perder o heartbeat da janela. O launcher impede duas instâncias principais pelo mesmo usuário. O perfil Edge do aplicativo é separado; dados e histórico anteriores são preservados. Pacotes para terceiros não incluem a credencial privada do técnico: outro computador de técnico requer sua própria configuração; o principal neste workspace já foi configurado.
+## Segurança e dados
 
-No modo online, o launcher lê `.runtime/operator-settings.json`, restrito ao usuário Windows e SYSTEM e excluído do Git/pacotes. Prefere DPAPI; se DPAPI estiver indisponível, a configuração fica protegida por ACL Windows. A configuração do operador nunca deve ser enviada ao cliente ou copiada para GitHub. Autenticação individual do técnico por conta ainda é futura; a credencial atual autentica apenas o operador do serviço de códigos.
+O código identifica o cliente e não concede acesso. A sessão exige credencial do técnico e consentimento do atendido; o cookie de captura é HttpOnly/SameSite Strict e Secure em HTTPS. Comandos são vinculados à revisão da permissão. Revogar presença ou trocar sua credencial de sessão encerra a autorização. Fila, tamanho, prazo de upload e frequência de requisições têm limites; a ação de encerrar permanece disponível com a cota esgotada.
 
-Ao provisionar a configuração por outra conta, informe `--owner-sid SID_DA_CONTA_DO_TECNICO` ao configurador nativo. Essa conta é preservada nas atualizações; DPAPI não é criado para a conta errada. A ACL fica limitada ao destinatário, ao provisionador e a SYSTEM. Falhas de permissão agora mostram uma mensagem específica.
+No Render sem disco, o registro guarda somente presença em memória e deriva o código por HMAC a partir da identidade privada do dispositivo e da chave já configurada do servidor. Reinícios encerram sessões e exigem reconexão. A mesma identidade e a mesma chave recuperam o código; trocar a chave altera os códigos derivados. Isso **não é banco persistente, histórico no servidor nem reserva global entre servidores independentes**. O modo local continua usando `.runtime/pairing-devices.json`, preservando os códigos existentes.
 
-## Compilar
+Identidade do cliente: `%LOCALAPPDATA%/VoaDesk/client`, por endpoint, com DPAPI quando disponível e ACL restrita. Agenda e histórico do técnico ficam locais. Não apagar ou compartilhar identidades. A atualização mantém assinatura de manifesto, verificação de tamanho/hash e cópia anterior; não há atualização remota nova configurada por este processo.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
-# Para incorporar um serviço publicado ao cliente:
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1 -PairingUrl https://SEU-SERVICO.onrender.com
-```
+O serviço de sinalização é uma fronteira de confiança. WebRTC usa DTLS-SRTP/SCTP, mas não foi implementada autenticação externa do técnico por conta/OIDC nem verificação independente do transcript contra o próprio servidor. Não anunciar E2EE autenticada ou identidade pessoal verificada. A assinatura do manifesto não equivale a Authenticode ou reputação no SmartScreen.
 
-A imagem original `Logo.png` é preservada. Se estiver ausente num clone Git, o build a restaura de `assets/Logo.png.base64`; logo e ícone de tamanhos 16 a 256 px são derivados por recorte/conversão, preservando o desenho fornecido.
-
-Para gerar os pacotes:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/package.ps1
-```
-
-`dist/VoaDesk-0.2.0-windows-x64.zip` contém o aplicativo principal, cliente, fontes e documentação. `dist/VoaDeskCliente-0.2.0.zip` contém somente o cliente e instruções. Ambos excluem perfil de navegador, histórico e credenciais. São binários de prévia sem assinatura digital. O endereço incorporado depende do parâmetro de build; conferir a configuração antes de enviar a terceiros.
-
-## Serviço de códigos no Render
-
-Repositório autorizado: https://github.com/Tavaresxxx/VoaDesk (privado). Serviço existente **VoaDesk**, Node **Free**, uma instância, sem disco/banco/worker. Comandos atuais do Render: `yarn install` / `yarn start`. `VOADESK_MODE=pairing` seleciona o serviço, enquanto o desktop preserva sua inicialização Windows. `VOADESK_OPERATOR_TOKEN` foi configurado pelo plugin, sem segredo no Git; `PORT` vem do Render. `VOADESK_TRUST_PROXY=true` é usado atrás do proxy do provedor. `VOADESK_STARTUP_SELF_TEST=true` verifica os fluxos HTTP internos uma vez por inicialização, revoga os dados de teste e registra somente estados/códigos HTTP, sem segredos. Health: `/health`.
-
-O serviço recebe somente códigos e estados; não recebe vídeo, teclas ou tela. Registros são efêmeros em memória: restart/redeploy invalida os códigos; peça um novo código. O plano Free pode suspender após inatividade e demorar para iniciar. Não há TURN ou promessa de gratuidade da retransmissão de vídeo. Ver [configuração e limites](docs/voadesk-0.2.md).
-
-## Verificar
+## Desenvolvimento e QA
 
 ```powershell
-node --test tests/core.test.mjs tests/host.test.mjs tests/pairing.test.mjs tests/server-start.test.mjs
+npm test
+npm run test:security
+npm run test:load
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-test-tools.ps1
+node tools/native-race-smoke.mjs
+node tools/native-features-smoke.mjs
+# Aponte FAROL_PLAYWRIGHT para uma instalação local do Playwright.
+node tools/support-smoke.mjs
 ```
 
-Teste visual/integração usa uma instalação de Playwright informada por `FAROL_PLAYWRIGHT`; esse nome de variável preserva compatibilidade com o laboratório inicial. `tools/client-smoke.mjs` verifica o cliente nativo e o fluxo do painel usando servidor local. As imagens do cliente têm código substituído por `XXXX XXXX XXXX`, nunca o segredo ativo. `tools/video-smoke.mjs` verifica o caminho H.264 após a mudança visual; não depende do servidor remoto.
+`npm start` mantém o modo localhost de desenvolvimento. O ZIP do técnico inicia explicitamente com `--online`. O servidor Render usa `VOADESK_MODE=pairing`, a credencial existente em `VOADESK_OPERATOR_TOKEN` e a origem HTTPS de `VOADESK_PUBLIC_ORIGIN` ou `RENDER_EXTERNAL_URL`. Não há novas despesas ou dependências npm em runtime.
 
-Antes dos testes nativos, execute `powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-test-tools.ps1`. O teste `tools/window-smoke.mjs` consulta as propriedades da janela principal criada pelo próprio teste; exige que esse contexto consiga abrir Edge com janela. Neste executor isso não foi possível; o resultado ficou explicitamente não confirmado, sem desativar o sandbox do aplicativo.
+Depois do deploy Live, os testes autorizados de produção usam a credencial local sem imprimi-la:
 
-- [Entrega 0.2, implantação e evidências](docs/voadesk-0.2.md)
-- [Arquitetura inicial e fontes](docs/architecture.md)
-- [Protocolo e evolução de segurança](docs/security-and-next.md)
-- [Desempenho do laboratório inicial](docs/performance.md)
-- [Procedimentos de vídeo e latência](docs/validation.md)
+```powershell
+node tools/production-http-qa.mjs
+node tools/support-smoke.mjs --production
+node tools/native-bridge-smoke.mjs --production
+```
 
-O nome Farol em arquivos técnicos/histórico representa a primeira prova de vídeo. A marca ativa do aplicativo é VoaDesk. Não há acesso oculto, input, transferência, áudio, autostart, serviço Windows, controle de UAC ou desktop seguro.
+Esses testes criam identidades descartáveis, usam uma fonte de vídeo sintética e substituem SendInput por um coletor. Eles verificam o HTTPS público e o caminho de sinalização/entrada sem capturar o desktop ou injetar teclas reais. Relatórios ficam em `artifacts/production-qa`; a homologação entre máquinas permanece separada.
+
+- [Segurança e carga local anteriores](docs/security-validation-local.md)
+- [Entrega localhost 0.4 e seus limites históricos](docs/voadesk-0.4-local.md)
+- [Validação manual anterior](docs/validation-0.4.md)
+- [Arquitetura e próximos requisitos](docs/security-and-next.md)
+
+MIT cobre o código do projeto; Windows, Edge, Node.js e codecs mantêm seus próprios termos e licenças.

@@ -1,4 +1,4 @@
-param([string]$PairingUrl = 'https://voadesk.onrender.com')
+param([string]$PairingUrl = 'http://127.0.0.1:47832')
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -27,7 +27,9 @@ $iconResource = '/resource:' + (Join-Path $assetDir 'voadesk.ico') + ',VoaDesk.I
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar consulta de cor.' }
 & $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll /reference:System.Security.dll $icon ('/out:' + (Join-Path $projectRoot 'dist\VoaDesk.exe')) (Join-Path $projectRoot 'native\Launcher.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar launcher.' }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Net.Http.dll /reference:System.Web.Extensions.dll $icon $iconResource ('/resource:' + (Join-Path $assetDir 'logo.png') + ',VoaDesk.Logo') ('/resource:' + $endpointFile + ',VoaDesk.Server') ('/out:' + (Join-Path $projectRoot 'dist\VoaDeskCliente.exe')) (Join-Path $projectRoot 'native\ClientApp.cs')
+& $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll ('/out:' + (Join-Path $buildCache 'VoaDeskUpdate.exe')) (Join-Path $projectRoot 'native\UpdateWorker.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar atualizador.' }
+& $compiler /nologo /target:winexe /main:ClientWindow /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Net.Http.dll /reference:System.Web.Extensions.dll /reference:System.Security.dll $icon $iconResource ('/resource:' + (Join-Path $assetDir 'logo.png') + ',VoaDesk.Logo') ('/resource:' + $endpointFile + ',VoaDesk.Server') ('/resource:' + (Join-Path $projectRoot 'assets\update-public.xml') + ',VoaDesk.UpdateKey') ('/resource:' + (Join-Path $buildCache 'VoaDeskUpdate.exe') + ',VoaDesk.Updater') ('/out:' + (Join-Path $projectRoot 'dist\VoaDeskCliente.exe')) (Join-Path $projectRoot 'native\ClientApp.cs') (Join-Path $projectRoot 'native\RemoteInput.cs') (Join-Path $projectRoot 'native\ClientUpdate.cs') (Join-Path $projectRoot 'native\DisplayProbe.cs') (Join-Path $projectRoot 'native\ProductVersion.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o cliente.' }
 & $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Drawing.dll $icon $iconResource ('/out:' + (Join-Path $projectRoot 'dist\VoaDeskWindow.exe')) (Join-Path $projectRoot 'native\WindowBranding.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar identidade da janela.' }

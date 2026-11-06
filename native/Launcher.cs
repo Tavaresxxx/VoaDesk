@@ -11,20 +11,29 @@ public static class Launcher {
         if(processError!=null&&(processError.NativeErrorCode==2||processError.NativeErrorCode==3))return "Node.js nao foi encontrado. Instale Node.js 22 ou posterior e abra o VoaDesk novamente.";
         return error.Message;
     }
-    [STAThread] public static int Main() {
+    [STAThread] public static int Main(string[] args) {
         try {
             string root=Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).FullName;
             string server=Path.Combine(root,"src","host","server.mjs");
             if (!File.Exists(server)) throw new Exception("Mantenha a pasta dist junto de src. Não mova apenas o executável.");
-            string node=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"nodejs","node.exe");
+            string node=Path.Combine(root,"runtime","node.exe");
+            if (!File.Exists(node)) node=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"nodejs","node.exe");
             if (!File.Exists(node)) node="node.exe";
             bool acquired;
             using(var mutex=new Mutex(true,"Local\\VoaDesk.Principal",out acquired)) {
                 if(!acquired) { MessageBox.Show("O VoaDesk principal já está aberto.","VoaDesk",MessageBoxButtons.OK,MessageBoxIcon.Information); return 0; }
                 // Machine-local protected credentials are loaded only by the technician launcher.
                 string settings=Path.Combine(root,".runtime","operator-settings.json");
+                string userSettings=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"VoaDesk","operator-settings.json");
+                if(!File.Exists(settings)&&File.Exists(userSettings))settings=userSettings;
                 var start=new ProcessStartInfo(node,"\""+server+"\" --open") { WorkingDirectory=root,UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardError=true };
-                if(File.Exists(settings)) {
+                start.EnvironmentVariables.Remove("VOADESK_PAIRING_URL");
+                start.EnvironmentVariables.Remove("VOADESK_OPERATOR_TOKEN");
+                start.EnvironmentVariables["VOADESK_MODE"]="desktop";
+                bool online=Array.IndexOf(args,"--online")>=0;
+                if(online&&!File.Exists(settings))throw new Exception("Este computador de técnico ainda não está configurado. Solicite o provisionamento autorizado da credencial do operador.");
+                if(online)start.Arguments+=" --online";
+                if(online&&File.Exists(settings)) {
                     var json=new System.Web.Script.Serialization.JavaScriptSerializer();
                     var values=json.Deserialize<System.Collections.Generic.Dictionary<string,string>>(File.ReadAllText(settings));
                     start.EnvironmentVariables["VOADESK_PAIRING_URL"]=values["server"];
