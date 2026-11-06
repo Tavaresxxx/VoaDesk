@@ -6,8 +6,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Build de distribuição falhou.' }
 $version = (Get-Content -LiteralPath (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json).version
 $stage = Join-Path $projectRoot ('.cache\installation-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '\VoaDeskTecnico')
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
-foreach ($folder in @('src','dist','runtime')) { New-Item -ItemType Directory -Force -Path (Join-Path $stage $folder) | Out-Null }
+foreach ($folder in @('src','dist','runtime','assets')) { New-Item -ItemType Directory -Force -Path (Join-Path $stage $folder) | Out-Null }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'src') -Destination $stage -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\Logo.png.base64') -Destination (Join-Path $stage 'assets')
 foreach ($binary in @('VoaDesk.exe','VoaDeskWindow.exe','FarolProbe.exe','VoaDeskCliente.exe')) { Copy-Item -LiteralPath (Join-Path $projectRoot ('dist\'+$binary)) -Destination (Join-Path $stage 'dist') }
 $node = (Get-Command node.exe -ErrorAction Stop).Source
 Copy-Item -LiteralPath $node -Destination (Join-Path $stage 'runtime\node.exe')
@@ -30,9 +31,10 @@ VoaDesk Tecnico $version - previa de teste em rede local
 3. A credencial do tecnico e lida da configuracao privada ja existente nesta conta Windows.
    A distribuicao nao contem credenciais. Em outro computador de tecnico e necessario provisionamento autorizado.
 4. Entregue VoaDeskCliente.exe ao computador atendido. Ambos precisam de internet e da mesma rede local.
-5. Informe o codigo do cliente e clique em Verificar codigo. A tela de espera abre e solicita o consentimento no cliente.
+5. Informe o codigo do cliente e clique em Solicitar acesso. A tela de espera abre e solicita o consentimento no cliente.
    O cliente compacto expande para permitir visualizar, controlar ou recusar. Depois, selecione o monitor SDR.
 6. Teste visualizar antes de autorizar controle. Encerre e confirme a parada nas duas pontas.
+7. Para receber ajuda neste computador, use Abrir meu codigo na tela inicial. O cliente mostra o codigo real do dispositivo.
 
 Servidor: $PairingUrl
 Sem TURN ou garantia de conexao entre redes diferentes. Nao desative firewall, Defender ou UAC.

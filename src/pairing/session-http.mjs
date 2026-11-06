@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readJson, RequestError } from '../http-guards.mjs';
 import { createHash } from 'node:crypto';
+import {brandSvg} from '../brand.mjs';
 export function sessionRouter(hub, { root, isOperator, enabled, allow = () => true }) {
   const budget = token => { if(!allow('session:'+createHash('sha256').update(token).digest('hex')))throw new RequestError(429,'RATE_LIMIT'); };
   const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
@@ -21,9 +22,13 @@ export function sessionRouter(hub, { root, isOperator, enabled, allow = () => tr
         const token=String(req.headers.cookie??'').split(';').map(x=>x.trim()).find(x=>x.startsWith('voadesk_capture='))?.slice(16);
         const s=hub.browser(token);
         if(path!=='/support/end')budget(token);
+        if(req.method==='GET'&&['/support/theme.css','/support/capture.css','/support/logo.svg','/support/symbol.svg'].includes(path)){
+          const svg=path.endsWith('.svg');const body=svg?brandSvg(path.endsWith('symbol.svg')):readFileSync(join(root,path.endsWith('theme.css')?'src/ui/theme.css':'src/video/capture.css'));
+          res.writeHead(200,{'Content-Type':svg?'image/svg+xml':'text/css; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(body);return true;
+        }
         if(req.method==='GET'&&['/support/','/support/capture.mjs','/support/shared.mjs','/support/quality.mjs','/support/stats.mjs','/support/profiles.mjs'].includes(path)){
           const names={'/support/':['capture.html','text/html'],'/support/capture.mjs':['capture.mjs','text/javascript'],'/support/shared.mjs':['peer.mjs','text/javascript'],'/support/quality.mjs':['quality.mjs','text/javascript'],'/support/stats.mjs':['stats.mjs','text/javascript'],'/support/profiles.mjs':['profiles.mjs','text/javascript']};
-          const [name,type]=names[path];res.writeHead(200,{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",'Referrer-Policy':'no-referrer'});res.end(readFileSync(join(root,'src/video',name)));return true;
+          const [name,type]=names[path];res.writeHead(200,{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",'Referrer-Policy':'no-referrer'});res.end(readFileSync(join(root,'src/video',name)));return true;
         }
         if(req.method==='GET'&&path==='/support/state'){json(res,200,hub.public(s));return true;}
         if(req.method!=='POST'||req.headers.origin!==origin||req.headers['x-voadesk']!=='1')throw new Error('DENIED');

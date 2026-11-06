@@ -2,60 +2,86 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VoaDesk · Suporte remoto</title>
-  <link rel="icon" type="image/x-icon" href="/voadesk.ico"><link rel="stylesheet" href="/app.css">
+  <meta name="color-scheme" content="light"><title>VoaDesk · Suporte remoto</title>
+  <link rel="icon" href="/voadesk.ico"><link rel="stylesheet" href="/theme.css"><link rel="stylesheet" href="/app.css">
 </head>
 <body>
-  <aside class="rail" aria-label="Navegação e clientes">
+  <a class="skip-link" href="#access-code">Ir para o código de acesso</a>
+  <aside class="rail" aria-label="Navegação principal">
     <a class="brand" href="/" aria-label="VoaDesk início"><img src="/logo.png" alt="VoaDesk"></a>
-    <a class="nav-active" href="#access"><span aria-hidden="true">↗</span> Acessar computador</a>
-    <section class="saved-section" aria-labelledby="saved-heading">
-      <div class="saved-heading"><h2 id="saved-heading">Clientes salvos</h2><button id="add-client" class="icon-button" type="button" aria-label="Adicionar cliente" title="Adicionar cliente">+</button></div>
-      <p id="saved-status" class="saved-status" role="status">Carregando clientes…</p>
-      <ul id="saved-clients" class="saved-list"></ul>
-    </section>
-    <div class="rail-bottom"><span class="status-dot" aria-hidden="true"></span><div>Ambiente local<small>VoaDesk · Windows x64</small></div></div>
+    <nav class="main-nav" aria-label="VoaDesk">
+      <button class="nav-item" data-page="home" aria-current="page"><span class="nav-symbol" aria-hidden="true">⌂</span> Início</button>
+      <button class="nav-item" data-page="clients"><span class="nav-symbol" aria-hidden="true">▤</span> Clientes salvos <span id="client-count" class="nav-count"></span></button>
+      <button class="nav-item" data-page="help"><span class="nav-symbol" aria-hidden="true">?</span> Ajuda e diagnóstico</button>
+    </nav>
+    <div class="rail-bottom"><span>Seu suporte. Mais perto.</span><small class="version">VoaDesk <span data-version>0.5.0</span></small></div>
   </aside>
   <main>
-    <header><span class="breadcrumbs">VoaDesk <span>/</span> Área do técnico</span><span class="version">PRÉVIA LOCAL 0.4</span></header>
-    <section class="intro"><span class="eyebrow">CONEXÕES MAIS PRÓXIMAS</span><h1>Seu suporte,<br>a um código de distância.</h1><p>Peça ao cliente para abrir o VoaDesk Cliente.<br>Informe o código ou escolha um cliente salvo ao lado.</p></section>
-    <section class="access-card" id="access" aria-labelledby="access-heading">
-      <div class="card-top"><span class="access-icon" aria-hidden="true">↗</span><span class="section-kicker">ACESSAR COMPUTADOR</span></div>
-      <h2 id="access-heading">Qual é o código do cliente?</h2>
-      <p class="card-description">Cada cliente tem um código único que permanece o mesmo.</p>
-      <form id="access-form">
-        <label for="access-code">Código de acesso</label>
-        <div class="access-input-row"><input id="access-code" type="text" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" autocomplete="off" spellcheck="false" autocapitalize="characters" autofocus required aria-describedby="access-message"><button class="primary" id="verify-code" disabled>Verificar código <span aria-hidden="true">↗</span></button></div>
-        <p id="access-message" class="message" role="status" aria-live="polite">Conectando ao serviço local…</p>
-      </form>
-      <div class="card-note"><span aria-hidden="true">◈</span><p>O cliente precisa estar com o aplicativo aberto. Salvar um código não concede permissão de controle.</p></div>
+    <header class="app-header"><span id="page-label">Visão geral</span><span id="connection-state" class="service-status" role="status">Conferindo serviço…</span></header>
+    <div id="home-page" class="page">
+      <section class="welcome"><div><span class="eyebrow">BEM-VINDO AO VOADESK</span><h1>Uma conexão.<br>Muitas soluções.</h1><p>Receba ajuda ou dê o próximo passo com alguém.</p></div><div class="brand-space" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></section>
+      <div class="intentions">
+        <section class="access-section" id="access" aria-labelledby="access-heading">
+          <span class="step-label">01 / ACESSAR</span><h2 id="access-heading">Acessar outro dispositivo</h2><p class="section-description">Digite o código que aparece no VoaDesk do cliente.</p>
+          <form id="access-form">
+            <label for="access-code">Código de acesso</label>
+            <input id="access-code" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" autocomplete="off" spellcheck="false" autocapitalize="characters" required aria-describedby="access-message">
+            <button class="primary access-action" id="verify-code" disabled><span>Solicitar acesso</span><span aria-hidden="true">↗</span></button>
+            <p id="access-message" class="message" role="status" aria-live="polite">Conferindo serviço…</p>
+          </form>
+          <p class="permission-note">O cliente escolhe o que permitir antes da conexão.</p>
+        </section>
+        <section class="receive-section" aria-labelledby="receive-heading">
+          <span class="step-label">02 / RECEBER</span><h2 id="receive-heading">Receber acesso</h2><p class="section-description">Precisa de uma mão? Abra seu código e envie para quem vai ajudar.</p>
+          <div class="receive-preview"><span class="device-symbol" aria-hidden="true"></span><div><strong>Este dispositivo</strong><span>Seu código aparece no aplicativo do cliente.</span></div></div>
+          <button type="button" id="open-receiver" class="secondary">Abrir meu código <span aria-hidden="true">↗</span></button>
+          <p id="receiver-message" class="message" role="status">Você decide quando permitir ou encerrar um acesso.</p>
+          <a class="text-link download-client" href="/downloads/VoaDeskCliente.exe" download>Baixar aplicativo do cliente</a>
+        </section>
+      </div>
+      <div class="home-footnote"><span class="small-mark" aria-hidden="true"></span><p>Pronto para ajudar, sempre com permissão.</p><button type="button" class="text-button" data-page="help">Como funciona</button></div>
+    </div>
+    <section id="clients-page" class="page" hidden aria-labelledby="saved-heading">
+      <div class="page-heading"><div><span class="eyebrow">ACESSO RÁPIDO</span><h1 id="saved-heading">Clientes salvos</h1><p>Encontre um cliente e solicite acesso quando precisar.</p></div><button id="add-client" class="primary" type="button"><span aria-hidden="true">+</span> Adicionar cliente</button></div>
+      <label class="search-label" for="client-search">Buscar cliente</label><input id="client-search" class="search-input" type="search" placeholder="Buscar por nome" autocomplete="off">
+      <p id="saved-status" class="empty-state" role="status">Carregando clientes…</p><ul id="saved-clients" class="saved-list"></ul>
+      <p class="help">Salvar um cliente facilita o próximo contato. A autorização continua sendo necessária a cada atendimento.</p>
+    </section>
+    <section id="help-page" class="page" hidden aria-labelledby="help-heading">
+      <div class="page-heading"><div><span class="eyebrow">QUANDO PRECISAR</span><h1 id="help-heading">Vamos por partes.</h1><p>As respostas essenciais, sem complicação.</p></div></div>
+      <div class="help-layout"><div class="help-articles">
+        <details open><summary>Como receber ajuda?</summary><p>Em Início, selecione Abrir meu código. Envie o código exibido para a pessoa que vai ajudar. Quando a solicitação chegar, escolha se ela poderá apenas visualizar ou também controlar.</p></details>
+        <details><summary>Como acessar um dispositivo?</summary><p>Peça para o cliente abrir o VoaDesk, digite o código e selecione Solicitar acesso. Aguarde a autorização e a escolha da tela no computador do cliente.</p></details>
+        <details><summary>Como interromper um atendimento?</summary><p>Selecione Encerrar atendimento em qualquer uma das pontas. Para liberar o teclado remoto sem encerrar, pressione Escape.</p></details>
+        <details><summary>O que esta versão precisa?</summary><p>Esta prévia atende computadores Windows na mesma rede local, com internet para sinalização. O cliente precisa selecionar um monitor SDR. Aplicativos elevados e conexões entre redes diferentes não têm suporte validado.</p></details>
+      </div><div>
+        <section class="connection-panel" aria-labelledby="diagnostic-heading"><h2 id="diagnostic-heading">Diagnóstico</h2><p class="help">Use se algo não estiver respondendo.</p><button id="check-connection" class="secondary" type="button">Verificar conexão</button><p id="diagnostic-summary" class="message" role="status">Nenhuma verificação executada.</p><details><summary>Detalhes técnicos</summary><dl id="diagnostic-details"></dl><p class="help">RTT não mede o tempo completo entre ação e retorno visual.</p></details></section>
+      </div></div>
     </section>
     <section class="session-panel" id="session-panel" role="dialog" aria-modal="true" aria-labelledby="session-status" hidden>
       <div class="session-toolbar"><img class="session-brand" src="/logo.png" alt="VoaDesk"><div class="session-heading"><strong id="session-status" role="status" aria-live="polite">Aguardando autorização</strong><small id="permission-status">Nenhum acesso autorizado</small></div><button type="button" id="end-session" class="danger">Encerrar atendimento</button></div>
-      <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-symbol"><img src="/symbol.png" alt=""></div><span class="section-kicker">SEU SUPORTE ESTÁ A CAMINHO</span><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
-      <div class="session-options" id="session-options" hidden><label>Preferência <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrado</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button></div>
+      <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-copy"><span class="eyebrow">ESTAMOS CONECTANDO VOCÊS</span><div class="waiting-symbol" aria-hidden="true"><img src="/symbol.png" alt=""></div><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="waiting-art" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></div>
+      <div class="session-options" id="session-options" hidden>
+        <label>Imagem <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrada</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button><button id="session-diagnostic" class="text-button" type="button" aria-expanded="false">Diagnóstico</button>
+      </div>
       <div id="session-media" hidden>
-      <p id="quality-notice" class="message" role="status">Sua preferência será usada como base para os ajustes.</p>
-      <video id="remote-video" autoplay playsinline muted tabindex="0" aria-label="Tela compartilhada pelo cliente"></video>
-      <textarea id="remote-keyboard" aria-label="Entrada remota ABNT2. Escape libera o foco." autocomplete="off" spellcheck="false"></textarea>
-      <p class="help">Clique na imagem para controlar ou apontar. O cursor azul é local; o cursor capturado na imagem é remoto. Escape libera o teclado. Acesso limitado a aplicativos não elevados.</p>
+        <p id="quality-notice" class="message" role="status">A imagem será ajustada conforme sua preferência.</p>
+        <video id="remote-video" autoplay playsinline muted tabindex="0" aria-label="Tela compartilhada pelo cliente"></video>
+        <label class="sr-only" for="remote-keyboard">Entrada remota. Escape libera o foco.</label><textarea id="remote-keyboard" aria-label="Entrada remota ABNT2. Escape libera o foco." placeholder="Clique na tela para interagir · Escape libera o teclado" autocomplete="off" spellcheck="false"></textarea>
+        <p class="help remote-help">O acesso respeita a permissão do cliente. Escape libera o teclado.</p>
+        <div id="session-diagnostics" hidden></div>
       </div>
     </section>
-    <p class="help"><a class="download-client" href="/downloads/VoaDeskCliente.exe" download>↓ Baixar cliente Windows (.exe)</a> · versão local para este computador</p>
-    <section class="connection-panel"><button id="check-connection" class="secondary" type="button">Verificar conexão</button><p id="diagnostic-summary" class="message" role="status">Verifique o serviço local ou acompanhe as métricas durante o atendimento.</p><details><summary>Informações para o técnico</summary><dl id="diagnostic-details"></dl><p class="help">RTT não é latência de ação até retorno visual. Campos ausentes aparecem como não disponíveis.</p></details></section>
-    <div class="preview-note"><span class="preview-icon" aria-hidden="true">i</span><p><strong>Atendimento autorizado em rede local.</strong><br>Use os dois computadores na mesma rede, com internet para sinalização. Selecione um único monitor SDR. A conexão depende das permissões de rede do Windows.</p></div>
-    <footer><span>Você mantém o controle. Sempre.</span><span id="connection-state">Serviço local · iniciando</span></footer>
+    <footer class="app-footer"><span>Você mantém o controle.</span><span>VoaDesk · Windows</span></footer>
   </main>
-  <dialog id="client-dialog" aria-labelledby="dialog-title">
-    <form id="client-form">
-      <div class="dialog-heading"><div><span class="section-kicker">ACESSO RÁPIDO</span><h2 id="dialog-title">Adicionar cliente</h2></div><button type="button" id="close-dialog" class="close-button" aria-label="Fechar">×</button></div>
-      <p class="dialog-description">Salve o nome e o código para encontrar este cliente nas próximas vezes.</p>
-      <label for="client-name">Nome do cliente</label><input id="client-name" name="name" maxlength="80" placeholder="Ex.: Escritório Central" autocomplete="off" required>
-      <label for="client-code">Código de acesso</label><input id="client-code" name="code" maxlength="19" placeholder="XXXX XXXX XXXX XXXX" autocomplete="off" spellcheck="false" required>
-      <p id="client-message" class="message" role="status" aria-live="polite"></p>
-      <div class="dialog-actions"><button type="button" id="cancel-client" class="secondary">Cancelar</button><button id="save-client" type="submit" class="primary">Salvar cliente</button></div>
-    </form>
-  </dialog>
+  <dialog id="client-dialog" aria-labelledby="dialog-title"><form id="client-form">
+    <div class="dialog-heading"><span class="eyebrow">CLIENTES SALVOS</span><button type="button" id="close-dialog" class="close-button" aria-label="Fechar">×</button></div>
+    <h2 id="dialog-title">Mais perto na próxima vez.</h2><p class="dialog-description">Salve o nome e o código para encontrar este cliente.</p>
+    <label for="client-name">Nome do cliente</label><input id="client-name" name="name" maxlength="80" placeholder="Como você reconhece este cliente?" autocomplete="off" required>
+    <label for="client-code">Código de acesso</label><input id="client-code" name="code" maxlength="19" placeholder="XXXX XXXX XXXX XXXX" autocomplete="off" spellcheck="false" required>
+    <p id="client-message" class="message" role="status" aria-live="polite"></p>
+    <div class="dialog-actions"><button type="button" id="cancel-client" class="secondary">Cancelar</button><button id="save-client" type="submit" class="primary">Salvar cliente</button></div>
+  </form></dialog>
   <script type="module" src="/app.mjs"></script>
 </body>
 </html>

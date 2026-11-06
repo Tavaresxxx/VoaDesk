@@ -6,6 +6,23 @@ import { join } from 'node:path';
 import { createHost } from '../src/host/server.mjs';
 import http from 'node:http';
 
+test('receber acesso abre somente o cliente local com a origem configurada e exige autenticação e origem',async t=>{
+ const dataDir=await mkdtemp(join(tmpdir(),'voadesk-receiver-'));let launched=[],fail=false;
+ const host=await createHost({dataDir,idleTimeout:0,environment:{},pairing:{url:'https://configured.invalid',token:'fixture'},launchClient:async origin=>{if(fail)throw new Error();launched.push(origin);}});
+ t.after(async()=>{await host.close();await rm(dataDir,{recursive:true,force:true});});
+ const boot=await fetch(host.bootstrapUrl,{redirect:'manual'}),cookie=boot.headers.get('set-cookie').split(';')[0];
+ const send=(headers,body='{}')=>fetch(host.origin+'/api/receiver/open',{method:'POST',headers,body});
+ assert.equal((await send({})).status,401);
+ assert.equal((await send({Cookie:cookie,Origin:'https://wrong.invalid','X-Farol-Request':'1'})).status,403);
+ assert.equal(launched.length,0);
+ const headers={Cookie:cookie,Origin:host.origin,'X-Farol-Request':'1'};
+ assert.equal((await send(headers,'null')).status,400);
+ assert.equal((await send(headers,JSON.stringify({server:'https://attacker.invalid',command:'ignored'}))).status,200);
+ assert.deepEqual(launched,['https://configured.invalid']);
+ fail=true;const response=await send(headers);assert.equal(response.status,503);assert.match((await response.json()).message,/Baixe/);
+ const config=await (await fetch(host.origin+'/api/pairing/config',{headers:{Cookie:cookie}})).json();assert.equal(config.receiverAvailable,true);assert.equal(config.remote,true);
+});
+
 test('host loopback protege bootstrap, origem, assets e histórico', async t => {
   const dataDir = await mkdtemp(join(tmpdir(), 'farol-test-'));
   const host = await createHost({ dataDir, idleTimeout: 0, environment: { color: { status: 'unknown' } } });

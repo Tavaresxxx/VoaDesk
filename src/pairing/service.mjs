@@ -25,7 +25,7 @@ export async function createPairingService({ port = 0, host = '127.0.0.1', opera
     try {
       const path = req.url.split('?')[0];
       if(host === '127.0.0.1' && req.headers.host !== sessions.host && req.headers.host !== '127.0.0.1:'+server.address().port) return reply(res,403,{error:'HOST_DENIED'});
-      if (path === '/health' && req.method === 'GET') return reply(res, 200, { service: 'voadesk-pairing', version: '0.4.2', scope: sessionsEnabled?'authorized-lan-session-preview':'pairing-only', ready: true, sessionsEnabled, deviceStorage:devices?.storage??(devices?'file':'none'), serverHistoryPersistent:Boolean(devices?.file), release:process.env.RENDER_GIT_COMMIT??null });
+      if (path === '/health' && req.method === 'GET') return reply(res, 200, { service: 'voadesk-pairing', version: '0.5.0', scope: sessionsEnabled?'authorized-lan-session-preview':'pairing-only', ready: true, sessionsEnabled, deviceStorage:devices?.storage??(devices?'file':'none'), serverHistoryPersistent:Boolean(devices?.file), release:process.env.RENDER_GIT_COMMIT??null });
       const nativeBearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
       if (path === '/v3/operator/request') {
         if (!equal(nativeBearer,operatorToken)) return reply(res,403,{message:'Operador não autorizado.'});

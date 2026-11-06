@@ -8,7 +8,9 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 public static class ClientSmoke {
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [STAThread] public static int Main(string[] args) {
+        try{SetProcessDpiAwarenessContext(new IntPtr(-4));}catch{}
         Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
         string previous=null; bool all=true;
         for(int attempt=0;attempt<2;attempt++) {
@@ -20,7 +22,8 @@ public static class ClientSmoke {
                 running=true; timer.Stop(); string value=label.Text;
                 try {
                     if(previous!=null&&value!=previous)throw new Exception();
-                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=400&&form.ClientSize.Height<=250&&form.Controls.OfType<Button>().Count(b=>b.Visible)==1;
+                    float scale=form.CurrentAutoScaleDimensions.Width/96f;
+                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=440*scale+1&&form.ClientSize.Height<=308*scale+1&&form.Controls.OfType<Button>().Count(b=>b.Visible)==1&&label.TabStop&&label.AccessibleRole==AccessibleRole.PushButton&&form.Controls.Cast<Control>().Where(c=>c.Visible).All(c=>c.Right<=form.ClientSize.Width&&c.Bottom<=form.ClientSize.Height);
                     label.Text="XXXX XXXX XXXX XXXX";
                     using(var bitmap=new Bitmap(form.Width,form.Height)) { form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height)); bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png); }
                     label.Text=value;

@@ -16,6 +16,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const assets = new Map([
   ['/', ['src/ui/index.html', 'text/html; charset=utf-8']],
   ['/app.css', ['src/ui/app.css', 'text/css']],
+  ['/theme.css', ['src/ui/theme.css', 'text/css']],
   ['/app.mjs', ['src/ui/app.mjs', 'text/javascript']],
   ['/logo.png', ['src/assets/logo.png', 'image/png']],
   ['/symbol.png', ['src/assets/symbol.png', 'image/png']],
@@ -43,7 +44,7 @@ export async function probeEnvironment() {
   return { platform: os.platform(), release: os.release(), arch: os.arch(), cpu: os.cpus()[0]?.model ?? 'unknown', logicalCpus: os.cpus().length, memoryGiB: Math.round(os.totalmem() / 2 ** 30), node: process.versions.node, color };
 }
 
-export async function createHost({ port = 0, dataDir = join(root, '.runtime'), idleTimeout = 90000, environment, pairing = null } = {}) {
+export async function createHost({ port = 0, dataDir = join(root, '.runtime'), idleTimeout = 90000, environment, pairing = null, launchClient = null } = {}) {
   mkdirSync(dataDir, { recursive: true });
   const saved = new SavedClients(join(dataDir, 'saved-clients.json'));
   const historyFile = join(dataDir, 'history.json');
@@ -56,6 +57,8 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
   let bootstrapped = false;
   let lastHeartbeat = Date.now();
   const env = environment ?? await probeEnvironment();
+  const version=JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version;
+  const clientFile=join(root,'dist/VoaDeskCliente.exe');
   let origin;
   function response(res, status, body = '', type = 'text/plain; charset=utf-8', extra = {}) {
     res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', 'Content-Security-Policy': csp, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Resource-Policy': 'same-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()', ...extra });
@@ -85,6 +88,15 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
         return response(res, 204);
       }
       if (url.pathname === '/api/environment' && req.method === 'GET') return response(res, 200, JSON.stringify(env), 'application/json');
+      if(url.pathname==='/api/receiver/open'&&req.method==='POST'){
+        await readJson(req,res,1024);
+        if(!pairing||(!launchClient&&!existsSync(clientFile)))return response(res,503,JSON.stringify({message:'Baixe o aplicativo do cliente e tente novamente.'}),'application/json');
+        try{
+          if(launchClient)await launchClient(pairing.url);
+          else await new Promise((ok,fail)=>{const child=spawn(clientFile,['--server',pairing.url],{cwd:root,stdio:'ignore',windowsHide:false,detached:true});child.once('error',fail);child.once('spawn',()=>{child.unref();ok();});});
+          return response(res,200,JSON.stringify({opened:true}),'application/json');
+        }catch{return response(res,503,JSON.stringify({message:'Não foi possível abrir o cliente. Baixe o aplicativo e tente novamente.'}),'application/json');}
+      }
       if (url.pathname.startsWith('/api/session/')) {
         if (!pairing) return response(res, 503, '{}', 'application/json');
         const action=url.pathname.slice('/api/session/'.length);
@@ -97,7 +109,7 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
         if(action==='request'&&upstream.ok){sessionToken=result.token;delete result.token;}
         return response(res,upstream.status,JSON.stringify(result),'application/json');
       }
-      if (url.pathname === '/api/pairing/config' && req.method === 'GET') return response(res, 200, JSON.stringify({ available: Boolean(pairing), scope: 'pairing-only', remote: pairing?.url?.startsWith('https:') ?? false }), 'application/json');
+      if (url.pathname === '/api/pairing/config' && req.method === 'GET') return response(res, 200, JSON.stringify({ available: Boolean(pairing), scope: 'pairing-only', remote: pairing?.url?.startsWith('https:') ?? false,version,receiverAvailable:Boolean(pairing)&&(Boolean(launchClient)||existsSync(clientFile)) }), 'application/json');
       if (url.pathname === '/api/pairing/verify' && req.method === 'POST') {
         if (!pairing) return response(res, 503, JSON.stringify({ message: 'Serviço de códigos não configurado.' }), 'application/json');
         const payload = await readJson(req,res,1024);

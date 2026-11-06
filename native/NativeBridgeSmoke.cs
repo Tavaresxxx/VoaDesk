@@ -13,7 +13,7 @@ public static class NativeBridgeSmoke {
   ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
   Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);var sent=new List<RemoteInput.INPUT>();var form=new ClientWindow(args[0],args[1],false,sent.Add);var timer=new Timer{Interval=100};var elapsed=Stopwatch.StartNew();bool running=false;int result=1;string step="start";
   timer.Tick+=async delegate{
-   if(running)return;var label=form.Controls.OfType<Label>().FirstOrDefault(l=>l.Name=="AccessCode"&&l.Text.Length==19);if(label==null){if(elapsed.Elapsed.TotalSeconds>15){timer.Stop();form.Close();}return;}running=true;timer.Stop();
+   if(running)return;var label=form.Controls.OfType<Label>().FirstOrDefault(l=>l.Name=="AccessCode"&&System.Text.RegularExpressions.Regex.IsMatch(l.Text,@"^[A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4} [A-Z2-9]{4}$"));if(label==null){if(elapsed.Elapsed.TotalSeconds>15){timer.Stop();form.Close();}return;}running=true;timer.Stop();
    try{
     using(var tech=new HttpClient()){
      tech.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("VOADESK_TEST_OPERATOR_TOKEN"));

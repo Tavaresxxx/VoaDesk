@@ -9,8 +9,8 @@ diagnostics.before(diagnosticsHome);
 const tell=text=>$('session-status').textContent=text;
 function panel(visible){
   $('session-panel').hidden=!visible;document.body.classList.toggle('in-session',visible);
-  if(visible){diagnostics.inert=false;$('session-media').append(diagnostics);}else diagnosticsHome.after(diagnostics);
-  for(const element of document.querySelectorAll('body > .rail, main > :not(#session-panel)'))element.inert=visible;
+  if(visible){diagnostics.inert=false;$('session-diagnostics').append(diagnostics);$('session-diagnostics').hidden=true;$('session-diagnostic').setAttribute('aria-expanded','false');}else {diagnosticsHome.after(diagnostics);window.dispatchEvent(new Event('voadesk:home'));}
+  for(const element of document.querySelectorAll('body > :not(main), main > :not(#session-panel)'))element.inert=visible;
   (visible?$('end-session'):$('access-code')).focus({preventScroll:true});
 }
 function waiting(title,description,loading=true){
@@ -23,9 +23,9 @@ function disposeMedia(){
   $('remote-video').srcObject?.getTracks().forEach(track=>track.stop());$('remote-video').srcObject=null;
   held.clear();guiding=false;$('guide-mode').setAttribute('aria-pressed','false');$('guide-mode').textContent='Orientar cliente';
 }
-async function closePanel(message){
+async function closePanel(message,type=''){
   if(document.fullscreenElement)await document.exitFullscreen().catch(()=>{});
-  panel(false);$('access-message').textContent=message;$('access-message').className='message';
+  panel(false);$('access-message').textContent=message;$('access-message').className='message '+type;
 }
 const send=(data,fast=false)=>{const c=fast?pointer:channel;if(c?.readyState!=='open')return;if(c.bufferedAmount>16384){if(!ended)void end();return;}c.send(JSON.stringify({...data,permissionRevision:session?.permissionRevision}));};
 function quality(){send({type:'quality',preference:$('session-profile').value,automatic:$('auto-quality').checked});}
@@ -56,10 +56,11 @@ export async function requestSession(code){
     await requesting;if(cancelRequested)return;
     ended=false;waiting('Aguardando o cliente aceitar','Peça ao cliente para permitir a conexão no aplicativo VoaDesk.');
     $('permission-status').textContent='O cliente escolherá visualizar ou controlar.';
-  }catch(e){if(!cancelRequested)await closePanel(e.message);}
+  }catch(e){if(!cancelRequested)await closePanel(e.message,'error');}
   finally{requesting=null;}
 }
 $('end-session').onclick=()=>void end();$('session-profile').onchange=quality;$('auto-quality').onchange=quality;
+$('session-diagnostic').onclick=()=>{const expanded=$('session-diagnostics').hidden;$('session-diagnostics').hidden=!expanded;$('session-diagnostic').setAttribute('aria-expanded',String(expanded));if(expanded)$('check-connection').focus({preventScroll:true});};
 $('guide-mode').onclick=()=>{release();guiding=!guiding;$('guide-mode').setAttribute('aria-pressed',String(guiding));$('guide-mode').textContent=guiding?'Orientação ativa':'Orientar cliente';};
 $('full-session').onclick=()=>{if(document.fullscreenElement)void document.exitFullscreen();else void $('session-panel').requestFullscreen();};
 $('remote-video').onpointerdown=e=>{if(ended)return;const p=position(e,$('remote-video'));if(!p)return;e.preventDefault();if(guiding){send({type:'guide',...p});return;}if(session?.permission!=='control')return;$('remote-keyboard').focus({preventScroll:true});$('remote-video').setPointerCapture(e.pointerId);send({type:'down',button:e.button,...p});};

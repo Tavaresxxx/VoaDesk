@@ -19,6 +19,12 @@ test('API HTTP vincula papéis, cookie de captura, origem e ticket de uso único
  assert.equal((await fetch(ticketUrl,{redirect:'manual'})).status,403);
  assert.equal((await fetch(svc.origin+'/support/state')).status,403);
  assert.equal((await fetch(svc.origin+'/support/state',{headers:{Cookie:cookie}})).status,200);
+ for(const path of ['/support/theme.css','/support/capture.css','/support/logo.svg','/support/symbol.svg']){
+  assert.equal((await fetch(svc.origin+path)).status,403);
+  const asset=await fetch(svc.origin+path,{headers:{Cookie:cookie}});assert.equal(asset.status,200);
+  assert.match(asset.headers.get('content-type'),path.endsWith('.svg')?/image\/svg\+xml/:/text\/css/);
+  assert.ok((await asset.text()).length>100);
+ }
  assert.equal((await fetch(svc.origin+'/support/input',{method:'POST',headers:{Cookie:cookie},body:'{}'})).status,403);
  assert.equal((await fetch(svc.origin+'/support/input',{method:'POST',headers:{Cookie:cookie,Origin:svc.origin,'X-VoaDesk':'1'},body:JSON.stringify({type:'text',text:'not-authorized'})})).status,400);
  await post('/v3/operator/end',{},request.body.token);

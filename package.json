@@ -1,6 +1,6 @@
 {
   "name": "voadesk",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "VoaDesk: atendimento autorizado em localhost com vídeo H.264, diagnóstico e cliente portátil",
@@ -17,7 +17,8 @@
     "test:support": "node tools/support-smoke.mjs",
     "test:client": "node tools/client-smoke.mjs",
     "test:native-session": "node tools/native-session-smoke.mjs",
-    "test:update-ui": "node tools/update-ui-smoke.mjs"
+    "test:update-ui": "node tools/update-ui-smoke.mjs",
+    "test:design": "node tools/redesign-smoke.mjs"
   },
   "engines": {
     "node": ">=22"

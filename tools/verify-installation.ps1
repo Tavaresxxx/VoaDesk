@@ -28,8 +28,8 @@ $stream = $assembly.GetManifestResourceStream('VoaDesk.Server')
 $reader = New-Object IO.StreamReader($stream)
 $endpoint = $reader.ReadToEnd().Trim(); $reader.Dispose()
 if ($endpoint -ne 'https://voadesk.onrender.com') { throw 'Endpoint incorreto no cliente.' }
-if ([Diagnostics.FileVersionInfo]::GetVersionInfo($client).FileVersion -ne '0.4.2.0') { throw 'Versao incorreta do cliente.' }
-$evidence = [ordered]@{ date=[DateTime]::UtcNow.ToString('o'); result='passed'; manifestFiles=$manifest.Count; privateFilesIncluded=$false; operatorCredentialIncluded=$false; nodeVersion=$nodeVersion; clientEndpoint=$endpoint; clientVersion='0.4.2.0'; extractedPackage=$packageRoot; files=@($files | ForEach-Object { [ordered]@{name=$_.Name;size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()} }) }
+if ([Diagnostics.FileVersionInfo]::GetVersionInfo($client).FileVersion -ne '0.5.0.0') { throw 'Versao incorreta do cliente.' }
+$evidence = [ordered]@{ date=[DateTime]::UtcNow.ToString('o'); result='passed'; manifestFiles=$manifest.Count; privateFilesIncluded=$false; operatorCredentialIncluded=$false; nodeVersion=$nodeVersion; clientEndpoint=$endpoint; clientVersion='0.5.0.0'; extractedPackage=$packageRoot; files=@($files | ForEach-Object { [ordered]@{name=$_.Name;size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()} }) }
 $report = Join-Path $projectRoot 'artifacts\production-qa'
 New-Item -ItemType Directory -Force -Path $report | Out-Null
 $evidence | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $report 'installation.json') -Encoding UTF8

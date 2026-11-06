@@ -21,7 +21,7 @@ try {
  browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--disable-features=WebRtcHideLocalIpsWithMdns','--autoplay-policy=no-user-gesture-required']});
  const tech=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];tech.on('pageerror',e=>errors.push(e.message));
  await tech.goto(host.bootstrapUrl);await tech.waitForFunction(()=>!document.getElementById('verify-code').disabled);
- await tech.locator('#check-connection').click();await tech.waitForFunction(()=>document.getElementById('diagnostic-summary').textContent.includes('Serviço local respondendo'));
+ await tech.locator('.nav-item[data-page="help"]').click();await tech.locator('#check-connection').click();await tech.waitForFunction(()=>document.getElementById('diagnostic-summary').textContent.includes('Serviço local respondendo'));await tech.locator('.nav-item[data-page="home"]').click();
  await tech.locator('#access-code').fill(client.code);await tech.locator('#verify-code').click();
  await tech.waitForFunction(()=>!document.getElementById('session-panel').hidden);
  const pending=(await api('/v3/client/state',null,client.token)).data;assert.equal(pending.state,'pending');assert.equal(pending.operatorName,production?'Operador autorizado do VoaDesk':'Técnico de teste local');
@@ -41,7 +41,7 @@ try {
  await tech.waitForFunction(()=>document.getElementById('remote-video').videoWidth===1920,null,{timeout:25000});
  await tech.waitForFunction(()=>document.getElementById('diagnostic-details').textContent.includes('video/H264'),null,{timeout:15000});
  await tech.locator('#session-profile').selectOption('quality');await tech.locator('#auto-quality').uncheck();
- await tech.locator('#remote-keyboard').focus();await tech.keyboard.insertText('Ação, café e ç.');await tech.keyboard.down('Control');await tech.keyboard.press('c');await tech.keyboard.up('Control');await tech.locator('#check-connection').click();
+ await tech.locator('#remote-keyboard').focus();await tech.keyboard.insertText('Ação, café e ç.');await tech.keyboard.down('Control');await tech.keyboard.press('c');await tech.keyboard.up('Control');await tech.locator('#session-diagnostic').click();await tech.locator('#check-connection').click();
  await waitEvents(()=>events.some(e=>e.type==='text'&&e.text.includes('Ação'))&&events.some(e=>e.type==='keyDown'&&e.code==='ControlLeft')&&events.some(e=>e.type==='release'));
  if(production){
    await tech.locator('#remote-video').hover();const box=await tech.locator('#remote-video').boundingBox(),at=Date.now();
