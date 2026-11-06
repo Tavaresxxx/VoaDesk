@@ -55,7 +55,7 @@ try {
  const before=events.filter(e=>e.type==='text').length;await tech.locator('#remote-keyboard').focus();await tech.keyboard.insertText('não transmitir');await tech.waitForTimeout(500);assert.equal(events.filter(e=>e.type==='text').length,before);
  await tech.locator('#access-code').fill('');
  await tech.screenshot({path:join(out,'atendimento-sintetico.png'),fullPage:true});
- const state=(await api('/v3/operator/state',{},service.sessions.current?undefined:undefined)).status; // Wrong role must never expose state.
+ const state=(await api('/v3/operator/state',{},undefined)).status; // Wrong role must never expose state.
  assert.equal(state,403);
  evidence.metrics=await tech.locator('#diagnostic-details').evaluate(dl=>Object.fromEntries([...dl.children].map(el=>[el.querySelector('dt').textContent,el.querySelector('dd').textContent])));evidence.hardware={cpu:(await import('node:os')).cpus()[0].model,memoryGiB:Math.round((await import('node:os')).totalmem()/2**30),browser:browser.version()};
  await tech.locator('#end-session').click();await tech.waitForFunction(()=>document.getElementById('remote-video').srcObject===null);

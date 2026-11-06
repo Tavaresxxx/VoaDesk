@@ -10,6 +10,7 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 public static class NativeBridgeSmoke {
  [STAThread]public static int Main(string[] args){
+  ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
   Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);var sent=new List<RemoteInput.INPUT>();var form=new ClientWindow(args[0],args[1],false,sent.Add);var timer=new Timer{Interval=100};var elapsed=Stopwatch.StartNew();bool running=false;int result=1;string step="start";
   timer.Tick+=async delegate{
    if(running)return;var label=form.Controls.OfType<Label>().FirstOrDefault(l=>l.Name=="AccessCode"&&l.Text.Length==19);if(label==null){if(elapsed.Elapsed.TotalSeconds>15){timer.Stop();form.Close();}return;}running=true;timer.Stop();
