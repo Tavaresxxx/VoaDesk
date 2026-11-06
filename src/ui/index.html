@@ -27,16 +27,19 @@
         <label for="access-code">Código de acesso</label>
         <div class="access-input-row"><input id="access-code" type="text" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" autocomplete="off" spellcheck="false" autocapitalize="characters" autofocus required aria-describedby="access-message"><button class="primary" id="verify-code" disabled>Verificar código <span aria-hidden="true">↗</span></button></div>
         <p id="access-message" class="message" role="status" aria-live="polite">Conectando ao serviço local…</p>
-      <button type="button" id="request-session" class="secondary">Solicitar atendimento ao cliente</button></form>
+      </form>
       <div class="card-note"><span aria-hidden="true">◈</span><p>O cliente precisa estar com o aplicativo aberto. Salvar um código não concede permissão de controle.</p></div>
     </section>
-    <section class="session-panel" id="session-panel" hidden>
-      <div class="session-toolbar"><div><strong id="session-status">Aguardando autorização</strong><small id="permission-status">Nenhum acesso autorizado</small></div><button type="button" id="end-session" class="danger">Encerrar atendimento</button></div>
-      <div class="session-options"><label>Preferência <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrado</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button></div>
+    <section class="session-panel" id="session-panel" role="dialog" aria-modal="true" aria-labelledby="session-status" hidden>
+      <div class="session-toolbar"><img class="session-brand" src="/logo.png" alt="VoaDesk"><div class="session-heading"><strong id="session-status" role="status" aria-live="polite">Aguardando autorização</strong><small id="permission-status">Nenhum acesso autorizado</small></div><button type="button" id="end-session" class="danger">Encerrar atendimento</button></div>
+      <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-symbol"><img src="/symbol.png" alt=""></div><span class="section-kicker">SEU SUPORTE ESTÁ A CAMINHO</span><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <div class="session-options" id="session-options" hidden><label>Preferência <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrado</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button></div>
+      <div id="session-media" hidden>
       <p id="quality-notice" class="message" role="status">Sua preferência será usada como base para os ajustes.</p>
       <video id="remote-video" autoplay playsinline muted tabindex="0" aria-label="Tela compartilhada pelo cliente"></video>
       <textarea id="remote-keyboard" aria-label="Entrada remota ABNT2. Escape libera o foco." autocomplete="off" spellcheck="false"></textarea>
       <p class="help">Clique na imagem para controlar ou apontar. O cursor azul é local; o cursor capturado na imagem é remoto. Escape libera o teclado. Acesso limitado a aplicativos não elevados.</p>
+      </div>
     </section>
     <p class="help"><a class="download-client" href="/downloads/VoaDeskCliente.exe" download>↓ Baixar cliente Windows (.exe)</a> · versão local para este computador</p>
     <section class="connection-panel"><button id="check-connection" class="secondary" type="button">Verificar conexão</button><p id="diagnostic-summary" class="message" role="status">Verifique o serviço local ou acompanhe as métricas durante o atendimento.</p><details><summary>Informações para o técnico</summary><dl id="diagnostic-details"></dl><p class="help">RTT não é latência de ação até retorno visual. Campos ausentes aparecem como não disponíveis.</p></details></section>

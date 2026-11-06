@@ -1,4 +1,4 @@
-import '/session.mjs';
+import {requestSession} from '/session.mjs';
 const $ = id => document.getElementById(id);
 const normalize = value => value.toUpperCase().replace(/[ -]/g, '');
 const valid = value => /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{16}$/.test(normalize(value));
@@ -51,8 +51,7 @@ $('access-form').addEventListener('submit', async event => {
   if (!valid($('access-code').value)) { message('access-message', 'Informe os 16 caracteres do código exibido no cliente.', 'error'); $('access-code').focus(); return; }
   $('verify-code').disabled = true; message('access-message', 'Verificando cliente…');
   try {
-    const response = await post('/api/pairing/verify', { code: normalize($('access-code').value) }), result = await response.json();
-    message('access-message', result.message || 'Não foi possível verificar o cliente.', response.ok && result.verified ? 'success' : 'error');
+    await requestSession(normalize($('access-code').value));
   } catch { message('access-message', 'Serviço indisponível. Feche e reabra o aplicativo.', 'error'); }
   finally { $('verify-code').disabled = !available; }
 });

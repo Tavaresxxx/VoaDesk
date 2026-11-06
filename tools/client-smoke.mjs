@@ -43,7 +43,40 @@ try {
   await page.reload();await page.waitForFunction(()=>!document.getElementById('verify-code').disabled);
   assert.equal(await page.locator('.client-item').count(),1);
   await page.locator('.client-item').click();assert.equal(await page.locator('#access-code').inputValue(),registered.code);
-  for(let i=0;i<2;i++){await page.locator('#verify-code').click();await page.waitForFunction(()=>document.getElementById('access-message').classList.contains('success'));await page.waitForFunction(()=>!document.getElementById('verify-code').disabled);}
+  const clientState=async()=>{const r=await fetch(service.origin+'/v3/client/state',{headers:{Authorization:'Bearer '+registered.token}});return r.json();};
+  for(let i=0;i<2;i++){
+    await page.locator('#verify-code').click();await page.waitForFunction(()=>document.getElementById('waiting-title').textContent==='Aguardando o cliente aceitar');
+    assert.equal((await clientState()).state,'pending');
+    assert.equal(await page.locator('#session-panel').evaluate(el=>{const b=el.getBoundingClientRect();return b.x===0&&b.y===0&&b.width===innerWidth&&b.height===innerHeight;}),true);
+    assert.equal(await page.locator('.rail').evaluate(el=>el.inert),true);
+    assert.equal(await page.locator('.waiting-symbol img').evaluate(img=>img.complete&&img.naturalWidth>0),true);
+    if(i===0){
+      await page.screenshot({path:join(outputDir,'aguardando-cliente.png')});
+      await page.setViewportSize({width:390,height:844});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      await page.screenshot({path:join(outputDir,'aguardando-cliente-mobile.png')});
+      await page.setViewportSize({width:1380,height:920});
+      await page.route('**/api/session/end',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}),{times:1});
+      await page.locator('#end-session').click();await page.waitForFunction(()=>document.getElementById('end-session').textContent==='Tentar encerrar');
+      assert.equal((await clientState()).state,'pending');
+    }
+    await page.locator('#end-session').click();await page.waitForFunction(()=>document.getElementById('session-panel').hidden);
+    assert.equal((await clientState()).state,'ended');assert.equal((await clientState()).permission,'none');
+    assert.equal(await page.locator('.rail').evaluate(el=>el.inert),false);
+    await page.waitForFunction(()=>!document.getElementById('verify-code').disabled);
+  }
+  // Cancel while the request response is still in flight; the late session must be ended.
+  let releaseRequest,requestSeen;const seen=new Promise(r=>requestSeen=r),release=new Promise(r=>releaseRequest=r);
+  await page.route('**/api/session/request',async route=>{const response=await route.fetch();requestSeen();await release;await route.fulfill({response});},{times:1});
+  await page.locator('#verify-code').click();await seen;await page.locator('#end-session').click();releaseRequest();
+  await page.waitForFunction(()=>document.getElementById('session-panel').hidden);assert.equal((await clientState()).state,'ended');
+  await page.locator('#verify-code').click();await page.waitForFunction(()=>document.getElementById('waiting-title').textContent==='Aguardando o cliente aceitar');
+  const denied=await clientState();await fetch(service.origin+'/v3/client/decision',{method:'POST',headers:{Authorization:'Bearer '+registered.token},body:JSON.stringify({id:denied.id,permission:'deny'})});
+  await page.waitForFunction(()=>document.getElementById('session-panel').hidden&&document.getElementById('access-message').textContent.includes('recusou'));
+  await page.locator('#verify-code').click();await page.waitForFunction(()=>document.getElementById('waiting-title').textContent==='Aguardando o cliente aceitar');
+  service.sessions.current.expires=Date.now()-1;
+  await page.waitForFunction(()=>document.getElementById('session-panel').hidden&&document.getElementById('access-message').textContent.includes('expirou'));
+  evidence.assertions.push('Verificar código solicita consentimento; espera ocupa a janela inteira com marca e animação; cancelamento pendente, resposta atrasada, falha no encerramento com nova tentativa, recusa e expiração testados.');
   await fetch(service.origin+'/v2/clients/revoke',{method:'POST',headers:{Authorization:'Bearer '+registered.token},body:'{}'});
   await page.locator('#verify-code').click();await page.waitForFunction(()=>document.getElementById('access-message').textContent.includes('Cliente offline'));
   await page.locator('#add-client').click();await page.locator('#client-name').fill('Outro nome');await page.locator('#client-code').fill(registered.code);await page.locator('#save-client').click();

@@ -1,19 +1,64 @@
 import {peer,prefer,gather,position} from '/video/peer.mjs';
 import {StatsSampler} from '/video/stats.mjs';
 import {diagnose} from '/video/quality.mjs';
-const $=id=>document.getElementById(id),post=async(action,payload={})=>{const r=await fetch('/api/session/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Farol-Request':'1'},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw new Error(data.message||'Sessão indisponível.');return data;};
+const $=id=>document.getElementById(id),post=async(action,payload={})=>{const r=await fetch('/api/session/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Farol-Request':'1'},body:JSON.stringify(payload),keepalive:action==='end'});const data=await r.json();if(!r.ok)throw new Error(data.message||'Sessão indisponível.');return data;};
 let pc,channel,pointer,session,busy=false,ended=true,answering=false,guiding=false,sessionEpoch=0,last={},frames=0,frameAt=performance.now(),fps=null,sampler=new StatsSampler();
+let requesting=null,ending=null,needsEnd=false,cancelRequested=false;
+const diagnostics=$('check-connection').closest('.connection-panel'),diagnosticsHome=document.createComment('diagnostics-home');
+diagnostics.before(diagnosticsHome);
 const tell=text=>$('session-status').textContent=text;
-const send=(data,fast=false)=>{const c=fast?pointer:channel;if(c?.readyState!=='open')return;if(c.bufferedAmount>16384){void end();return;}c.send(JSON.stringify({...data,permissionRevision:session?.permissionRevision}));};
+function panel(visible){
+  $('session-panel').hidden=!visible;document.body.classList.toggle('in-session',visible);
+  if(visible){diagnostics.inert=false;$('session-media').append(diagnostics);}else diagnosticsHome.after(diagnostics);
+  for(const element of document.querySelectorAll('body > .rail, main > :not(#session-panel)'))element.inert=visible;
+  (visible?$('end-session'):$('access-code')).focus({preventScroll:true});
+}
+function waiting(title,description,loading=true){
+  tell(title);$('waiting-title').textContent=title;$('waiting-description').textContent=description;
+  $('session-waiting').hidden=false;$('session-waiting').classList.toggle('is-loading',loading);
+  $('session-media').hidden=true;$('session-options').hidden=true;
+}
+function disposeMedia(){
+  ended=true;sessionEpoch++;answering=false;release();pc?.close();pc=null;channel=pointer=null;
+  $('remote-video').srcObject?.getTracks().forEach(track=>track.stop());$('remote-video').srcObject=null;
+  held.clear();guiding=false;$('guide-mode').setAttribute('aria-pressed','false');$('guide-mode').textContent='Orientar cliente';
+}
+async function closePanel(message){
+  if(document.fullscreenElement)await document.exitFullscreen().catch(()=>{});
+  panel(false);$('access-message').textContent=message;$('access-message').className='message';
+}
+const send=(data,fast=false)=>{const c=fast?pointer:channel;if(c?.readyState!=='open')return;if(c.bufferedAmount>16384){if(!ended)void end();return;}c.send(JSON.stringify({...data,permissionRevision:session?.permissionRevision}));};
 function quality(){send({type:'quality',preference:$('session-profile').value,automatic:$('auto-quality').checked});}
 function release(){send({type:'release'});}
-async function end(notify=true){if(ended)return;ended=true;sessionEpoch++;answering=false;release();pc?.close();pc=null;channel=pointer=null;$('remote-video').srcObject=null;tell('Atendimento encerrado');$('permission-status').textContent='Permissões revogadas';if(notify)await post('end').catch(()=>{});}
-$('request-session').onclick=async()=>{
-  $('request-session').disabled=true;
-  try{session=await post('request',{code:$('access-code').value});sessionEpoch++;ended=false;$('session-panel').hidden=false;tell('Aguardando autorização do cliente');$('permission-status').textContent='O cliente escolherá visualizar ou controlar.';$('session-panel').scrollIntoView({behavior:'smooth',block:'start'});}
-  catch(e){$('access-message').textContent=e.message;}
-  finally{$('request-session').disabled=false;}
-};
+async function end(notify=true,message='Atendimento encerrado. Você pode iniciar uma nova conexão.'){
+  if(ending)return ending;
+  cancelRequested=true;disposeMedia();$('end-session').disabled=true;
+  waiting('Encerrando atendimento','Aguarde a confirmação do encerramento.');
+  ending=(async()=>{
+    try{
+      await requesting?.catch(()=>{});
+      if(notify&&needsEnd){await post('end');needsEnd=false;}
+      if(!notify)needsEnd=false;
+      $('permission-status').textContent='Permissões revogadas';await closePanel(message);
+    }catch{
+      waiting('Não foi possível confirmar o encerramento','A conexão local foi interrompida. Tente encerrar novamente para confirmar com o cliente.',false);
+      $('permission-status').textContent='Confirmação de encerramento pendente';
+    }finally{$('end-session').disabled=false;$('end-session').textContent=needsEnd?'Tentar encerrar':'Encerrar atendimento';ending=null;}
+  })();return ending;
+}
+export async function requestSession(code){
+  if(requesting||ending||needsEnd)return;
+  cancelRequested=false;session=null;sessionEpoch++;last={};sampler=new StatsSampler();fps=null;
+  $('end-session').textContent='Cancelar solicitação';$('permission-status').textContent='Nenhum acesso autorizado';
+  waiting('Verificando código','Localizando o cliente e enviando a solicitação de acesso.');panel(true);
+  requesting=post('request',{code}).then(next=>{session=next;needsEnd=true;});
+  try{
+    await requesting;if(cancelRequested)return;
+    ended=false;waiting('Aguardando o cliente aceitar','Peça ao cliente para permitir a conexão no aplicativo VoaDesk.');
+    $('permission-status').textContent='O cliente escolherá visualizar ou controlar.';
+  }catch(e){if(!cancelRequested)await closePanel(e.message);}
+  finally{requesting=null;}
+}
 $('end-session').onclick=()=>void end();$('session-profile').onchange=quality;$('auto-quality').onchange=quality;
 $('guide-mode').onclick=()=>{release();guiding=!guiding;$('guide-mode').setAttribute('aria-pressed',String(guiding));$('guide-mode').textContent=guiding?'Orientação ativa':'Orientar cliente';};
 $('full-session').onclick=()=>{if(document.fullscreenElement)void document.exitFullscreen();else void $('session-panel').requestFullscreen();};
@@ -55,14 +100,15 @@ $('check-connection').onclick=async()=>{
 setInterval(async()=>{
   if(ended||busy)return;busy=true;const epoch=sessionEpoch;
   try{
-    const next=await post('state');if(ended||epoch!==sessionEpoch)return;session=next;if(session.state==='ended'){await end(false);tell(session.reason==='denied'?'Cliente recusou o atendimento.':'Atendimento encerrado');return;}
+    const next=await post('state');if(ended||epoch!==sessionEpoch)return;session=next;if(session.state==='ended'){await end(false,session.reason==='denied'?'Cliente recusou o atendimento.':session.reason==='connection-lost'?'A solicitação expirou ou a conexão foi interrompida. Tente novamente.':'Atendimento encerrado pelo cliente.');return;}
     $('permission-status').textContent=session.permission==='control'?'Controle autorizado pelo cliente':session.permission==='view'?'Somente visualização':'Aguardando autorização';
+    if(['approved','active'].includes(session.state)&&!$('session-waiting').hidden)waiting('Conectando ao cliente','Autorização recebida. Aguardando o cliente selecionar a tela para compartilhar.');
     if(session.offer&&!pc&&!answering){answering=true;const connecting=peer();pc=connecting;const current=()=>!ended&&epoch===sessionEpoch&&pc===connecting;
-      connecting.ontrack=e=>{if(!current()){e.track.stop();return;}$('remote-video').srcObject=new MediaStream([e.track]);void $('remote-video').play();};
+      connecting.ontrack=e=>{if(!current()){e.track.stop();return;}$('remote-video').srcObject=new MediaStream([e.track]);void $('remote-video').play().catch(()=>{});};
       connecting.ondatachannel=e=>{if(!current()){e.channel.close();return;}if(e.channel.label==='control'){channel=e.channel;channel.onopen=quality;channel.onmessage=event=>{if(!current())return;const d=JSON.parse(event.data);if(d.type==='qualityNotice')$('quality-notice').textContent=d.text;};}else pointer=e.channel;};
-      connecting.onconnectionstatechange=()=>{if(!current())return;if(connecting.connectionState==='connected')tell('Atendimento ativo');if(['failed','disconnected'].includes(connecting.connectionState))void end();};
+      connecting.onconnectionstatechange=()=>{if(!current())return;if(connecting.connectionState==='connected'){tell('Atendimento ativo');$('session-waiting').hidden=true;$('session-media').hidden=false;$('session-options').hidden=false;$('end-session').textContent='Encerrar atendimento';}if(['failed','disconnected'].includes(connecting.connectionState))void end();};
       await connecting.setRemoteDescription(session.offer);if(!current()){connecting.close();return;}prefer(connecting.getTransceivers()[0],false);await connecting.setLocalDescription(await connecting.createAnswer());await gather(connecting);if(!current()){connecting.close();return;}await post('signal',connecting.localDescription);if(current())answering=false;
     }
     if(pc?.connectionState==='connected'){const active=pc,report=await active.getStats();if(ended||epoch!==sessionEpoch||pc!==active)return;last={...(session.stats??{}),...sampler.sample(report,{fps,total:frames})};for(const k of ['encodedFps','capturedFps','encodeMs','encoder','powerEfficientEncoder','qualityLimitation'])if(session.stats?.[k]!=null)last[k]=session.stats[k];send({type:'feedback',stats:{rttMs:last.rttMs,jitterMs:last.jitterMs,lossPercent:last.lossPercent,decodeMs:last.decodeMs}});showDiagnostics();}
-  }catch{if(epoch===sessionEpoch&&!ended){await end(false);tell('Conexão interrompida. Permissões revogadas.');}}finally{busy=false;}
+  }catch{if(epoch===sessionEpoch&&!ended)await end(true,'Conexão interrompida. Atendimento encerrado.');}finally{busy=false;}
 },1000);

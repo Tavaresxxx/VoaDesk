@@ -13,7 +13,7 @@ const api=async(path,payload,bearer,headers={})=>{
 };
 const check=(name,value)=>{assert.ok(value,name);evidence.checks.push({name,result:'passed'});};
 try{
-  const health=await api('/health');check('HTTPS responde 200 e versão 0.4.1',health.status===200&&health.data.version==='0.4.1');
+  const health=await api('/health');check('HTTPS responde 200 e versão 0.4.2',health.status===200&&health.data.version==='0.4.2');
   check('Sinalização LAN habilitada e armazenamento declarado',health.data.sessionsEnabled&&health.data.deviceStorage==='derived-memory'&&health.data.serverHistoryPersistent===false);
   evidence.release=health.data.release;evidence.healthLatencyMs=health.elapsedMs;
   check('Origem de navegador externa recusada',(await api('/v2/clients',{},undefined,{Origin:'https://evil.invalid'})).status===403);

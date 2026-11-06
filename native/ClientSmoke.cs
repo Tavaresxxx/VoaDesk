@@ -20,7 +20,7 @@ public static class ClientSmoke {
                 running=true; timer.Stop(); string value=label.Text;
                 try {
                     if(previous!=null&&value!=previous)throw new Exception();
-                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=700&&form.ClientSize.Height<=600;
+                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=400&&form.ClientSize.Height<=250&&form.Controls.OfType<Button>().Count(b=>b.Visible)==1;
                     label.Text="XXXX XXXX XXXX XXXX";
                     using(var bitmap=new Bitmap(form.Width,form.Height)) { form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height)); bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png); }
                     label.Text=value;

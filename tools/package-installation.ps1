@@ -30,7 +30,8 @@ VoaDesk Tecnico $version - previa de teste em rede local
 3. A credencial do tecnico e lida da configuracao privada ja existente nesta conta Windows.
    A distribuicao nao contem credenciais. Em outro computador de tecnico e necessario provisionamento autorizado.
 4. Entregue VoaDeskCliente.exe ao computador atendido. Ambos precisam de internet e da mesma rede local.
-5. Informe o codigo do cliente, solicite atendimento e aguarde consentimento e selecao do monitor SDR.
+5. Informe o codigo do cliente e clique em Verificar codigo. A tela de espera abre e solicita o consentimento no cliente.
+   O cliente compacto expande para permitir visualizar, controlar ou recusar. Depois, selecione o monitor SDR.
 6. Teste visualizar antes de autorizar controle. Encerre e confirme a parada nas duas pontas.
 
 Servidor: $PairingUrl

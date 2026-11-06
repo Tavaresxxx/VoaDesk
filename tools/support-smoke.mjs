@@ -22,7 +22,7 @@ try {
  const tech=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];tech.on('pageerror',e=>errors.push(e.message));
  await tech.goto(host.bootstrapUrl);await tech.waitForFunction(()=>!document.getElementById('verify-code').disabled);
  await tech.locator('#check-connection').click();await tech.waitForFunction(()=>document.getElementById('diagnostic-summary').textContent.includes('Serviço local respondendo'));
- await tech.locator('#access-code').fill(client.code);await tech.locator('#request-session').click();
+ await tech.locator('#access-code').fill(client.code);await tech.locator('#verify-code').click();
  await tech.waitForFunction(()=>!document.getElementById('session-panel').hidden);
  const pending=(await api('/v3/client/state',null,client.token)).data;assert.equal(pending.state,'pending');assert.equal(pending.operatorName,production?'Operador autorizado do VoaDesk':'Técnico de teste local');
  assert.equal((await api('/v3/client/decision',{id:pending.id,permission:'control'},'wrong')).status,403);
@@ -53,7 +53,6 @@ try {
  await tech.locator('#guide-mode').click();await tech.locator('#remote-video').click({position:{x:200,y:160}});await waitEvents(()=>events.some(e=>e.type==='guide'));
  await api('/v3/client/decision',{id:pending.id,permission:'view'},client.token);await tech.waitForFunction(()=>document.getElementById('permission-status').textContent==='Somente visualização');
  const before=events.filter(e=>e.type==='text').length;await tech.locator('#remote-keyboard').focus();await tech.keyboard.insertText('não transmitir');await tech.waitForTimeout(500);assert.equal(events.filter(e=>e.type==='text').length,before);
- await tech.locator('#access-code').fill('');
  await tech.screenshot({path:join(out,'atendimento-sintetico.png'),fullPage:true});
  const state=(await api('/v3/operator/state',{},undefined)).status; // Wrong role must never expose state.
  assert.equal(state,403);
@@ -62,6 +61,7 @@ try {
  await tech.route('**/api/session/state',async route=>{const response=await route.fetch();if(!delayed){delayed=true;observed();await release;}await route.fulfill({response});});
  await Promise.race([held,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Estado de teste não interceptado.')),6000))]);
  await tech.locator('#end-session').click();releaseHeld();await tech.waitForFunction(()=>document.getElementById('remote-video').srcObject===null);await tech.waitForTimeout(1200);
+ assert.equal(await tech.locator('#session-panel').isHidden(),true);
  assert.equal(await tech.locator('#remote-video').evaluate(v=>v.srcObject===null),true);evidence.staleStateAfterEndIgnored=true;
  await capture.waitForFunction(()=>document.getElementById('status').textContent.includes('encerrado'),null,{timeout:5000});
  const finalState=await tech.evaluate(async()=>{const r=await fetch('/api/session/state',{method:'POST',headers:{'X-Farol-Request':'1'},body:'{}'});return r.json();});assert.equal(finalState.permission,'none');assert.deepEqual(errors,[]);
