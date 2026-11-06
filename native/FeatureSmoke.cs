@@ -16,6 +16,10 @@ public static class FeatureSmoke {
     engine.Apply(new Dictionary<string,object>{{"type","text"},{"text",text}});
     Check(sent.Count-from==text.Length*2);var actual=new StringBuilder();for(int i=from;i<sent.Count;i+=2){actual.Append((char)sent[i].data.key.scan);Check(sent[i].data.key.flags==4&&sent[i+1].data.key.flags==6);}Check(actual.ToString()==text);
     Check(RemoteInput.Map(.5,.5,1920,1080).X==960);Check(RemoteInput.Map(1,1,3840,2160).X==3839);Check(RemoteInput.Map(0,0,1920,1080).Y==0);
+    var desktop=new System.Drawing.Rectangle(-1920,-1080,3840,2160);
+    Check(RemoteInput.MapDesktop(0,0,new System.Drawing.Rectangle(-1920,-1080,1920,1080),desktop)==System.Drawing.Point.Empty);
+    var bottom=RemoteInput.MapDesktop(1,1,new System.Drawing.Rectangle(0,0,1920,1080),desktop);Check(bottom.X==65535&&bottom.Y==65535);
+    var left=RemoteInput.MapDesktop(1,1,new System.Drawing.Rectangle(-1920,-1080,1920,1080),desktop);Check(left.X>32700&&left.X<32768&&left.Y>32700&&left.Y<32768);
    }
    string envelope=File.ReadAllText(args[0]),xml=File.ReadAllText(args[1]);Check(UpdatePackage.Verify(envelope,xml,DateTime.UtcNow)!=null);
    bool rejected=false;try{UpdatePackage.Verify(envelope.Replace("payload\":\"","payload\":\"A"),xml,DateTime.UtcNow);}catch{rejected=true;}Check(rejected);

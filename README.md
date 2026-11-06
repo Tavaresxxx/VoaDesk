@@ -1,71 +1,84 @@
-# VoaDesk 0.4.1 — prévia para teste em rede local
+﻿# VoaDesk 0.6 — suporte remoto para Windows
 
-Atendimento Windows autorizado pelo cliente, com sinalização HTTPS e vídeo H.264/WebRTC direto entre os participantes. Esta versão prepara o teste manual entre **duas máquinas na mesma rede local**, ambas com internet. A conexão real entre os dois Windows precisa ser confirmada pelo procedimento abaixo; testes de pareamento ou de vídeo sintético não a substituem.
+O VoaDesk tem dois aplicativos: **Técnico**, para solicitar e conduzir atendimentos, e **Cliente**, para mostrar o código, receber a solicitação, autorizar e encerrar o acesso. O código identifica o dispositivo; cada atendimento depende de consentimento explícito.
 
-O serviço de sinalização é `https://voadesk.onrender.com`. Não há TURN/STUN nesta prévia nem garantia de conexão entre redes distintas. O firewall e a topologia da LAN podem impedir a conexão direta. Não desative o firewall, Defender, UAC ou o sandbox do Edge para testar.
+O técnico agora usa uma janela Windows própria em **WinForms + Microsoft WebView2**. A interface existente, o vídeo e os controles ficam dentro dela. Não é um atalho para o Edge. O Node.js portátil acompanha a distribuição e inicia como processo auxiliar sem console, exclusivamente em loopback.
 
-## Arquivos para usar
+## Abrir a versão distribuída
 
-Execute `npm run package:installation` para gerar exatamente dois arquivos locais em `instalação/`:
+Os arquivos gerados ficam em `instalação/`:
 
-- `VoaDeskCliente.exe`: entregue ao computador atendido. Contém o endpoint HTTPS e não contém credencial do técnico. Não requer Node.js instalado.
-- `VoaDeskTecnico.zip`: extraia a pasta completa no computador do suporte e execute `AbrirTecnico.bat`. O Node.js portátil e seus avisos de licença estão incluídos.
+- **VoaDeskTecnico.zip**: extraia a pasta completa e abra **VoaDeskTecnico.exe** pelo ícone. `AbrirTecnico.bat` continua disponível como alternativa.
+- **VoaDeskCliente.exe**: entregue ao computador atendido. É portátil e não exige Node.js instalado.
 
-Os dois computadores precisam de Windows 11 x64, Edge e .NET Framework 4.8. O atendido precisa de um único monitor SDR. O técnico requer a credencial do operador provisionada na conta Windows; ela não faz parte dos arquivos distribuídos. O launcher lê primeiro a configuração privada do projeto e, quando ausente, `%LOCALAPPDATA%/VoaDesk/operator-settings.json`. Em outra conta de técnico é necessário provisionamento autorizado.
+Mantenha o EXE do técnico junto das DLLs, `src/`, `dist/` e `runtime/`. O pacote não contém credencial de operador: reutiliza a configuração privada existente nesta conta Windows. Outra conta ou computador de técnico precisa de provisionamento autorizado. O aplicativo explica a ausência da configuração, sem gerar credenciais novas.
 
-Não mova somente o executável do técnico para fora da pasta extraída. Não copie `.runtime`, identidades ou credenciais para os pacotes. `dist`, `.cache` e `instalação` ficam fora do repositório.
+Pré-requisitos: Windows 11 x64, .NET Framework 4.8 e **Microsoft Edge WebView2 Runtime Evergreen** no técnico. A janela detecta a ausência do runtime e oferece o link oficial; Edge instalado não substitui esse runtime. O cliente continua usando Edge e .NET Framework 4.8. Os monitores compartilhados precisam operar em SDR. Não é necessário instalar ferramentas de desenvolvimento.
 
-## Teste entre duas máquinas
+O pacote distribuído usa a configuração existente do servidor HTTPS, atualmente `https://voadesk.onrender.com`. `modo-online.flag` define esse padrão sem conter dados privados. Para testar somente nesta máquina, abra **AbrirTecnicoLocal.bat** e use **Abrir meu código** na interface para iniciar o cliente no servidor local correto.
 
-1. Deixe as duas máquinas na mesma LAN com acesso à internet. Extraia o técnico e abra `AbrirTecnico.bat`.
-2. No computador atendido, abra `VoaDeskCliente.exe` e envie seu código ao técnico.
-3. No técnico, informe o código e clique **Solicitar atendimento ao cliente**. Verificar código apenas identifica presença.
-4. No atendido, confira a solicitação e escolha **Permitir visualizar**. Na janela Edge, clique em escolher tela e selecione o monitor inteiro.
-5. Confirme que o técnico enxerga a imagem real da outra máquina e que texto/cliques não são aplicados no modo visualizar.
-6. Encerre e faça uma nova solicitação. Autorize **Permitir controle**, selecione o monitor e teste texto com acentos, mouse e rolagem em um aplicativo de teste sem dados reais.
-7. Retire controle com **Permitir visualizar** e confirme a liberação das teclas/botões. Encerre no cliente e confira a parada nas duas pontas.
-8. Desconecte a rede do atendido durante uma sessão de teste; confirme a interrupção e solicite nova autorização ao reconectar.
+## Atendimento
 
-Anote versão, Windows/Edge, quantidade de monitores, rede, resultado e tempos observados. Se a conexão falhar, registre o diagnóstico; não trate autorização, SDP ou código verificado como prova de imagem/controle funcionais.
+1. O cliente abre o aplicativo e informa seu código ao técnico.
+2. O técnico digita o código ou seleciona um cliente salvo e solicita acesso.
+3. O cliente confere o solicitante e clica **Aceitar conexão**, autorizando controle, monitores e transferência de arquivos. Pode recusar ou encerrar a qualquer momento.
+4. A captura começa sem o seletor de monitor do navegador nos clientes novos. O técnico escolhe o monitor pela barra da sessão, que também oferece zoom, ajuste à tela, qualidade, diagnóstico, orientação e arquivos.
+5. **Arquivos ↔** permite navegar nas pastas do cliente, receber um arquivo pelo seletor de salvamento e enviar um arquivo para a pasta aberta. O destino padrão de envio é Downloads/VoaDesk. Arquivos existentes no cliente são preservados.
+6. Encerrar em qualquer ponta revoga o atendimento e libera entradas mantidas. Fechar a janela do técnico cancela transferências e encerra seu servidor auxiliar. Uma interrupção exige nova autorização.
 
-## Segurança e dados
+A janela é redimensionável, com minimizar, maximizar e fechar. Tela cheia acompanha o estado do vídeo no WebView2; Escape libera o teclado remoto. Uma segunda abertura revela a instância existente. Atalhos reservados pelo Windows não são interceptados: **CTRL+ALT+DEL, UAC, aplicativos elevados e área segura continuam limitados**. O botão CTRL+ALT+DEL explica a indisponibilidade; Gerenciador de Tarefas é uma ação separada.
 
-O código identifica o cliente e não concede acesso. A sessão exige credencial do técnico e consentimento do atendido; o cookie de captura é HttpOnly/SameSite Strict e Secure em HTTPS. Comandos são vinculados à revisão da permissão. Revogar presença ou trocar sua credencial de sessão encerra a autorização. Fila, tamanho, prazo de upload e frequência de requisições têm limites; a ação de encerrar permanece disponível com a cota esgotada.
+## Dados e segurança
 
-No Render sem disco, o registro guarda somente presença em memória e deriva o código por HMAC a partir da identidade privada do dispositivo e da chave já configurada do servidor. Reinícios encerram sessões e exigem reconexão. A mesma identidade e a mesma chave recuperam o código; trocar a chave altera os códigos derivados. Isso **não é banco persistente, histórico no servidor nem reserva global entre servidores independentes**. O modo local continua usando `.runtime/pairing-devices.json`, preservando os códigos existentes.
+Agenda e histórico continuam em `.runtime/saved-clients.json` e `.runtime/history.json`. O modo local preserva `.runtime/pairing-devices.json`. A configuração protegida do operador é lida de `.runtime/operator-settings.json` ou, se ausente, `%LOCALAPPDATA%/VoaDesk/operator-settings.json`. Não copiar esses arquivos para o GitHub ou para o ZIP.
 
-Identidade do cliente: `%LOCALAPPDATA%/VoaDesk/client`, por endpoint, com DPAPI quando disponível e ACL restrita. Agenda e histórico do técnico ficam locais. Não apagar ou compartilhar identidades. A atualização mantém assinatura de manifesto, verificação de tamanho/hash e cópia anterior; não há atualização remota nova configurada por este processo.
+O novo perfil do técnico fica em `.runtime/voadesk-webview2-profile`; o perfil antigo do Edge é preservado. Identidades do cliente permanecem em `%LOCALAPPDATA%/VoaDesk/client`, por endpoint, com DPAPI/ACL existentes. Não há migração de formato nem redefinição incidental de identidade ou código.
 
-O serviço de sinalização é uma fronteira de confiança. WebRTC usa DTLS-SRTP/SCTP, mas não foi implementada autenticação externa do técnico por conta/OIDC nem verificação independente do transcript contra o próprio servidor. Não anunciar E2EE autenticada ou identidade pessoal verificada. A assinatura do manifesto não equivale a Authenticode ou reputação no SmartScreen.
+O host serve apenas em `127.0.0.1`, com porta dinâmica para a interface. A sinalização de desenvolvimento mantém a porta local 47832 para preservar a identidade existente; se ocupada, a janela informa o conflito sem encerrar outros processos. Cookie HttpOnly/SameSite Strict, Host, origem, CSP, limites de corpo e revisões de autorização permanecem ativos. A autenticação inicial da janela passa somente por pipes privados; não vai em argumentos, URLs ou JavaScript público.
 
-## Desenvolvimento e QA
+O WebView2 bloqueia navegação externa, novas janelas, objetos nativos genéricos e mensagens web para o host. As páginas não recebem acesso irrestrito ao Windows. Os seletores de arquivo mantêm as permissões do runtime. Não são desativados sandbox, validação TLS, firewall, Defender ou UAC.
+
+Arquivos usam um DataChannel confiável separado, em blocos confirmados de 16 KiB, sem carregar o arquivo inteiro na memória e sem limite fixo em MB/GB. Há limites naturais de espaço livre, permissões, sistema de arquivos e duração da sessão (até oito horas). Não há retomada depois de desconectar. Escritas incompletas no cliente usam `.partial` e são removidas ao cancelar ou encerrar. A transferência não usa armazenamento do Render.
+
+## Arquitetura e limites atuais
+
+- `native/Launcher.cs` e `TechnicianWindow.cs`: janela, runtime, instância única, autenticação privada e ciclo de vida do auxiliar.
+- `src/host/server.mjs`: interface autenticada em loopback, agenda, histórico e proxy de sinalização.
+- `src/ui/`: interface reutilizada dentro do WebView2.
+- `native/ClientApp.cs`, `DesktopBridge.cs` e `RemoteInput.cs`: cliente portátil, captura, monitores, arquivos e entrada autorizada.
+- `src/video/`: H.264/WebRTC, qualidade, estatísticas e protocolo de arquivos. A captura nova está incorporada ao EXE do cliente.
+- `src/pairing/`: códigos, presença e autorização. Os assets públicos legados continuam disponíveis para clientes anteriores à ponte nativa.
+
+A captura nativa atual usa GDI/JPEG em loopback e canvas/WebRTC H.264, com alvo de 15 capturas/s. Não há promessa de ganho de desempenho, captura acelerada de 60 FPS ou HDR/WCG. Não há TURN/STUN configurado; o teste entre computadores exige a mesma LAN e acesso ao servidor de sinalização. Redes distintas não têm funcionamento garantido.
+
+No Render sem disco, presença e sessões são efêmeras; os códigos são derivados da identidade privada e da chave existente do servidor. Reinícios encerram sessões. Isso não equivale a banco persistente ou histórico no servidor. WebRTC usa DTLS-SRTP/SCTP; não anunciar autenticação pessoal externa ou E2EE verificada independentemente do servidor.
+
+## Desenvolvimento e validação
 
 ```powershell
 npm test
-npm run test:security
-npm run test:load
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-test-tools.ps1
+npm run test:desktop
+node tools/fragmented-upload-regression.mjs
+node tools/native-bridge-smoke.mjs
 node tools/native-race-smoke.mjs
 node tools/native-features-smoke.mjs
-# Aponte FAROL_PLAYWRIGHT para uma instalação local do Playwright.
-node tools/support-smoke.mjs
+npm run test:client
+npm run test:update-ui
+npm run package:installation
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-installation.ps1
 ```
 
-`npm start` mantém o modo localhost de desenvolvimento. O ZIP do técnico inicia explicitamente com `--online`. O servidor Render usa `VOADESK_MODE=pairing`, a credencial existente em `VOADESK_OPERATOR_TOKEN` e a origem HTTPS de `VOADESK_PUBLIC_ORIGIN` ou `RENDER_EXTERNAL_URL`. Não há novas despesas ou dependências npm em runtime.
+`npm start` abre o aplicativo Windows local. O build usa o compilador .NET Framework do Windows e baixa o SDK WebView2 oficial fixado em versão/hash na primeira execução. A distribuição inclui Node.js e as bibliotecas/avisos do SDK; não inclui o runtime Evergreen, cuja disponibilidade é verificada na abertura. Os testes de navegador usam `FAROL_PLAYWRIGHT`, ou a instalação de QA em `.cache/security-tools`.
 
-Depois do deploy Live, os testes autorizados de produção usam a credencial local sem imprimi-la:
+O teste `native-technician-smoke.mjs` abre o WinForms/WebView2 real, serviços descartáveis em localhost e uma fonte sintética com coletor de entrada. Confere H.264, sessão, monitores, arquivos, preservação de dados e encerramento. O modo opcional `--pickers` solicita interação com seletores reais. Relatórios e imagens ficam em `artifacts/`, fora do GitHub e dos pacotes.
 
-```powershell
-node tools/production-http-qa.mjs
-node tools/support-smoke.mjs --production
-node tools/native-bridge-smoke.mjs --production
-```
+**Vídeo sintético, autorização e SDP não provam captura ou controle reais entre computadores.** A homologação entre dois Windows deve incluir resoluções/DPI diferentes, mouse/teclado reais, arquivos grandes, queda de rede e encerramento em ambas as pontas. Consulte [a arquitetura Windows e a validação](docs/technician-windows.md) e [a captura nativa](docs/desktop-session-local.md).
 
-Esses testes criam identidades descartáveis, usam uma fonte de vídeo sintética e substituem SendInput por um coletor. Eles verificam o HTTPS público e o caminho de sinalização/entrada sem capturar o desktop ou injetar teclas reais. Relatórios ficam em `artifacts/production-qa`; a homologação entre máquinas permanece separada.
+## Publicação e manutenção
 
-- [Segurança e carga local anteriores](docs/security-validation-local.md)
-- [Entrega localhost 0.4 e seus limites históricos](docs/voadesk-0.4-local.md)
-- [Validação manual anterior](docs/validation-0.4.md)
-- [Arquitetura e próximos requisitos](docs/security-and-next.md)
+O serviço público continua executando `src/start.mjs` com `VOADESK_MODE=pairing`. O desktop usa outro modo e não é exposto pelo Render. Publicação exige pedido explícito; a convenção do projeto está em `.agents/skills/commit/SKILL.md`.
 
-MIT cobre o código do projeto; Windows, Edge, Node.js e codecs mantêm seus próprios termos e licenças.
+O repositório mantém código, testes, scripts e documentação. Pacotes, caches, evidências locais, perfis, identidades, históricos e credenciais permanecem fora dele. Documentos de versões anteriores preservam decisões históricas e não substituem este README.
+
+Código próprio: MIT. Node.js acompanha sua licença e avisos. O SDK WebView2 acompanha LICENSE/NOTICE; o runtime Evergreen e Windows têm seus próprios termos. Não há conclusão sobre licenciamento comercial de patentes H.264 ou assinatura Authenticode dos executáveis do projeto.

@@ -26,8 +26,11 @@ export function sessionRouter(hub, { root, isOperator, enabled, allow = () => tr
           const svg=path.endsWith('.svg');const body=svg?brandSvg(path.endsWith('symbol.svg')):readFileSync(join(root,path.endsWith('theme.css')?'src/ui/theme.css':'src/video/capture.css'));
           res.writeHead(200,{'Content-Type':svg?'image/svg+xml':'text/css; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(body);return true;
         }
-        if(req.method==='GET'&&['/support/','/support/capture.mjs','/support/shared.mjs','/support/quality.mjs','/support/stats.mjs','/support/profiles.mjs'].includes(path)){
+        if(req.method==='GET'&&['/support/','/support/capture.mjs','/support/shared.mjs','/support/quality.mjs','/support/stats.mjs','/support/profiles.mjs','/support/files.mjs'].includes(path)){
           const names={'/support/':['capture.html','text/html'],'/support/capture.mjs':['capture.mjs','text/javascript'],'/support/shared.mjs':['peer.mjs','text/javascript'],'/support/quality.mjs':['quality.mjs','text/javascript'],'/support/stats.mjs':['stats.mjs','text/javascript'],'/support/profiles.mjs':['profiles.mjs','text/javascript']};
+          // New clients embed their capture UI. Keep the public assets compatible with older portable clients.
+          names['/support/']=['capture-legacy.html','text/html'];names['/support/capture.mjs']=['capture-legacy.mjs','text/javascript'];
+          names['/support/files.mjs']=['files.mjs','text/javascript'];
           const [name,type]=names[path];res.writeHead(200,{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",'Referrer-Policy':'no-referrer'});res.end(readFileSync(join(root,'src/video',name)));return true;
         }
         if(req.method==='GET'&&path==='/support/state'){json(res,200,hub.public(s));return true;}

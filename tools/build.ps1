@@ -25,14 +25,21 @@ $icon = '/win32icon:' + (Join-Path $assetDir 'voadesk.ico')
 $iconResource = '/resource:' + (Join-Path $assetDir 'voadesk.ico') + ',VoaDesk.Icon'
 & $compiler /nologo /target:exe /platform:x64 /optimize+ '/reference:System.Web.Extensions.dll' ('/out:' + (Join-Path $projectRoot 'dist\FarolProbe.exe')) (Join-Path $projectRoot 'native\DisplayProbe.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar consulta de cor.' }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll /reference:System.Security.dll $icon ('/out:' + (Join-Path $projectRoot 'dist\VoaDesk.exe')) (Join-Path $projectRoot 'native\Launcher.cs')
-if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar launcher.' }
+& (Join-Path $PSScriptRoot 'prepare-webview2.ps1')
+$webviewRefs = @(('/reference:'+(Join-Path $projectRoot 'dist\Microsoft.Web.WebView2.Core.dll')),('/reference:'+(Join-Path $projectRoot 'dist\Microsoft.Web.WebView2.WinForms.dll')))
+& $compiler /nologo /target:winexe /main:Launcher /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll /reference:System.Security.dll $webviewRefs $icon $iconResource ('/out:' + (Join-Path $projectRoot 'dist\VoaDesk.exe')) (Join-Path $projectRoot 'native\Launcher.cs') (Join-Path $projectRoot 'native\TechnicianWindow.cs') (Join-Path $projectRoot 'native\OperatorSettings.cs') (Join-Path $projectRoot 'native\ProductVersion.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar a janela do tecnico.' }
+Copy-Item -LiteralPath (Join-Path $projectRoot 'dist\VoaDesk.exe') -Destination (Join-Path $projectRoot 'dist\VoaDeskTecnico.exe') -Force
 & $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll ('/out:' + (Join-Path $buildCache 'VoaDeskUpdate.exe')) (Join-Path $projectRoot 'native\UpdateWorker.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar atualizador.' }
-& $compiler /nologo /target:winexe /main:ClientWindow /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Net.Http.dll /reference:System.Web.Extensions.dll /reference:System.Security.dll $icon $iconResource ('/resource:' + (Join-Path $assetDir 'logo.png') + ',VoaDesk.Logo') ('/resource:' + (Join-Path $assetDir 'symbol.png') + ',VoaDesk.Symbol') ('/resource:' + $endpointFile + ',VoaDesk.Server') ('/resource:' + (Join-Path $projectRoot 'assets\update-public.xml') + ',VoaDesk.UpdateKey') ('/resource:' + (Join-Path $buildCache 'VoaDeskUpdate.exe') + ',VoaDesk.Updater') ('/out:' + (Join-Path $projectRoot 'dist\VoaDeskCliente.exe')) (Join-Path $projectRoot 'native\ClientApp.cs') (Join-Path $projectRoot 'native\RemoteInput.cs') (Join-Path $projectRoot 'native\ClientUpdate.cs') (Join-Path $projectRoot 'native\DisplayProbe.cs') (Join-Path $projectRoot 'native\ProductVersion.cs') (Join-Path $projectRoot 'native\Theme.cs')
+$captureFiles = [ordered]@{
+  'capture.html'='src\video\capture.html'; 'capture.mjs'='src\video\capture.mjs'; 'shared.mjs'='src\video\peer.mjs'
+  'quality.mjs'='src\video\quality.mjs'; 'stats.mjs'='src\video\stats.mjs'; 'profiles.mjs'='src\video\profiles.mjs'
+  'files.mjs'='src\video\files.mjs'; 'theme.css'='src\ui\theme.css'; 'capture.css'='src\video\capture.css'
+}
+$captureResources = @($captureFiles.GetEnumerator() | ForEach-Object { '/resource:' + (Join-Path $projectRoot $_.Value) + ',VoaDesk.Capture.' + $_.Key })
+& $compiler /nologo /target:winexe /main:ClientWindow $captureResources /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Net.Http.dll /reference:System.Web.Extensions.dll /reference:System.Security.dll $icon $iconResource ('/resource:' + (Join-Path $assetDir 'logo.png') + ',VoaDesk.Logo') ('/resource:' + (Join-Path $assetDir 'symbol.png') + ',VoaDesk.Symbol') ('/resource:' + $endpointFile + ',VoaDesk.Server') ('/resource:' + (Join-Path $projectRoot 'assets\update-public.xml') + ',VoaDesk.UpdateKey') ('/resource:' + (Join-Path $buildCache 'VoaDeskUpdate.exe') + ',VoaDesk.Updater') ('/out:' + (Join-Path $projectRoot 'dist\VoaDeskCliente.exe')) (Join-Path $projectRoot 'native\ClientApp.cs') (Join-Path $projectRoot 'native\RemoteInput.cs') (Join-Path $projectRoot 'native\DesktopBridge.cs') (Join-Path $projectRoot 'native\ClientUpdate.cs') (Join-Path $projectRoot 'native\DisplayProbe.cs') (Join-Path $projectRoot 'native\ProductVersion.cs') (Join-Path $projectRoot 'native\Theme.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar o cliente.' }
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /reference:System.Drawing.dll $icon $iconResource ('/out:' + (Join-Path $projectRoot 'dist\VoaDeskWindow.exe')) (Join-Path $projectRoot 'native\WindowBranding.cs')
-if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar identidade da janela.' }
 & $compiler /nologo /target:exe /platform:x64 /optimize+ /reference:System.Web.Extensions.dll /reference:System.Security.dll ('/out:' + (Join-Path $buildCache 'OperatorSettings.exe')) (Join-Path $projectRoot 'native\OperatorSettings.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar configurador protegido.' }
-Write-Output 'Gerados VoaDesk.exe, VoaDeskCliente.exe, VoaDeskWindow.exe e FarolProbe.exe. Cliente independente de Node.js.'
+Write-Output 'Gerados VoaDeskTecnico.exe (WinForms/WebView2), VoaDesk.exe, VoaDeskCliente.exe e FarolProbe.exe.'

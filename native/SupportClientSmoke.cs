@@ -19,9 +19,9 @@ public static class SupportClientSmoke {
     using(var http=new HttpClient()){
      http.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("VOADESK_TEST_OPERATOR_TOKEN"));
      var response=await http.PostAsync(new Uri(new Uri(a[0]),"v3/operator/request"),new StringContent("{\"code\":\""+code.Text+"\"}",Encoding.UTF8,"application/json"));response.EnsureSuccessStatusCode();
-     var deadline=Stopwatch.StartNew();while(!form.Controls.OfType<Button>().Any(b=>b.Text=="Permitir visualizar"&&b.Enabled)&&deadline.Elapsed.TotalSeconds<6)await Task.Delay(100);
+     var deadline=Stopwatch.StartNew();while(!form.Controls.OfType<Button>().Any(b=>b.Text=="Aceitar conexão"&&b.Enabled)&&deadline.Elapsed.TotalSeconds<6)await Task.Delay(100);
      if(!form.Visible||!form.Controls.OfType<Label>().Any(l=>l.Text.Contains("Técnico de teste local")))throw new Exception("Consent request not shown.");
-     form.Controls.OfType<Button>().First(b=>b.Text=="Permitir visualizar").PerformClick();
+     form.Controls.OfType<Button>().First(b=>b.Text=="Aceitar conexão").PerformClick();
      deadline.Restart();while(form.LastCaptureTicket==null&&deadline.Elapsed.TotalSeconds<6)await Task.Delay(100);if(form.LastCaptureTicket==null)throw new Exception("No capture ticket.");
      code.Text="XXXX XXXX XXXX XXXX";
      using(var bitmap=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height));bitmap.Save(a[1],System.Drawing.Imaging.ImageFormat.Png);}
@@ -35,6 +35,6 @@ public static class SupportClientSmoke {
    }catch(Exception e){Console.WriteLine("{\"error\":\""+e.GetType().Name+"\"}");}
    form.Close();
   };
-  timer.Start();Application.Run(form);timer.Dispose();if(result==0)Console.WriteLine("{\"result\":\"passed\",\"backgroundWindowHidden\":true,\"requestRevealedWindow\":true,\"technicianNamed\":true,\"explicitViewConsent\":true,\"endButtonUsed\":true,\"osInputInjected\":false}");return result;
+  timer.Start();Application.Run(form);timer.Dispose();if(result==0)Console.WriteLine("{\"result\":\"passed\",\"backgroundWindowHidden\":true,\"requestRevealedWindow\":true,\"technicianNamed\":true,\"explicitFullConsent\":true,\"endButtonUsed\":true,\"osInputInjected\":false}");return result;
  }
 }

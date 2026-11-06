@@ -50,16 +50,16 @@ try{
  assert.equal(await page.locator('.waiting-symbol').evaluate(el=>getComputedStyle(el,'::after').animationName),'none');
  await page.screenshot({path:join(out,'espera.png')});
  const pending=service.sessions.current;
- const accepted=await(await fetch(service.origin+'/v3/client/decision',{method:'POST',headers:{Authorization:'Bearer '+client.token},body:JSON.stringify({id:pending.id,permission:'view'})})).json();
+ const accepted=await(await fetch(service.origin+'/v3/client/decision',{method:'POST',headers:{Authorization:'Bearer '+client.token},body:JSON.stringify({id:pending.id,permission:'control'})})).json();
  const capture=await browser.newPage({viewport:{width:800,height:700},colorScheme:'dark'});capture.on('pageerror',e=>errors.push(e.message));
  await capture.addInitScript(()=>{navigator.mediaDevices.getDisplayMedia=async()=>{throw new DOMException('Cancelled','NotAllowedError');};});
- await capture.goto(service.origin+'/support/bootstrap?ticket='+accepted.ticket);await capture.waitForFunction(()=>!document.getElementById('share').disabled);
- assert.equal(await capture.locator('.capture-header img').evaluate(img=>img.complete&&img.naturalWidth>0),true);await audit(capture,'escolha de tela autorizada');await capture.screenshot({path:join(out,'escolher-tela.png'),fullPage:true});
+ await capture.goto(service.origin+'/support/bootstrap?ticket='+accepted.ticket);await capture.waitForFunction(()=>!document.getElementById('share').disabled);assert.equal(await capture.locator('#share').isVisible(),true);
+ assert.equal(await capture.locator('.capture-header img').evaluate(img=>img.complete&&img.naturalWidth>0),true);await audit(capture,'compatibilidade do cliente legado');await capture.screenshot({path:join(out,'escolher-tela.png'),fullPage:true});
  await capture.setViewportSize({width:320,height:780});assert.equal(await capture.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await capture.screenshot({path:join(out,'escolher-tela-mobile.png'),fullPage:true});
- await capture.locator('#share').click();await capture.waitForFunction(()=>document.body.dataset.state==='ended');assert.match(await capture.locator('#status').textContent(),/cancelada/);await audit(capture,'compartilhamento cancelado');
+ await capture.locator('#share').click();await capture.waitForFunction(()=>document.body.dataset.state==='ended');assert.match(await capture.locator('#status').textContent(),/cancelada/);await audit(capture,'compartilhamento legado cancelado');
  await page.waitForFunction(()=>document.getElementById('session-panel').hidden);
  await page.route('**/api/pairing/config',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({available:false,remote:false,receiverAvailable:false,version:'0.5.0'})}));
  await page.reload();await page.waitForFunction(()=>document.getElementById('connection-state').textContent==='Serviço não configurado');assert.equal(await page.locator('#verify-code').isDisabled(),true);await audit(page,'serviço indisponível');
- assert.deepEqual(errors,[]);evidence.receiverLaunchValidated=true;evidence.keyboardValidated=true;evidence.reducedMotionValidated=true;evidence.watermarkSeparatedFromContent=true;evidence.captureCancellationValidated=true;evidence.result='passed';
+ assert.deepEqual(errors,[]);evidence.receiverLaunchValidated=true;evidence.keyboardValidated=true;evidence.reducedMotionValidated=true;evidence.watermarkSeparatedFromContent=true;evidence.legacyCaptureCancellationValidated=true;evidence.result='passed';
 }catch(error){evidence.result='failed';evidence.failure=error.message;process.exitCode=1;}
 finally{clearInterval(keepAlive);await browser?.close();await host.close();await service.close();assert.equal(dirname(data),resolve(tmpdir()));await rm(data,{recursive:true,force:true});await writeFile(join(out,'report.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence,null,2));}

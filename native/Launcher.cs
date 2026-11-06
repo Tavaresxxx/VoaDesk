@@ -1,48 +1,36 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Windows.Forms;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Windows.Forms;
 public static class Launcher {
-    public static string DescribeError(Exception error) {
-        if(error is UnauthorizedAccessException)return "O Windows negou acesso a um arquivo do VoaDesk. A conta que abre o aplicativo precisa de permissao na configuracao local.\n\n"+error.Message;
-        if(error is System.Security.Cryptography.CryptographicException)return "A credencial do VoaDesk pertence a outra conta do Windows. Configure o operador para esta conta.";
-        var processError=error as System.ComponentModel.Win32Exception;
-        if(processError!=null&&(processError.NativeErrorCode==2||processError.NativeErrorCode==3))return "Node.js nao foi encontrado. Instale Node.js 22 ou posterior e abra o VoaDesk novamente.";
-        return error.Message;
-    }
-    [STAThread] public static int Main(string[] args) {
-        try {
-            string root=Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)).FullName;
-            string server=Path.Combine(root,"src","host","server.mjs");
-            if (!File.Exists(server)) throw new Exception("Mantenha a pasta dist junto de src. Não mova apenas o executável.");
-            string node=Path.Combine(root,"runtime","node.exe");
-            if (!File.Exists(node)) node=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"nodejs","node.exe");
-            if (!File.Exists(node)) node="node.exe";
-            bool acquired;
-            using(var mutex=new Mutex(true,"Local\\VoaDesk.Principal",out acquired)) {
-                if(!acquired) { MessageBox.Show("O VoaDesk principal já está aberto.","VoaDesk",MessageBoxButtons.OK,MessageBoxIcon.Information); return 0; }
-                // Machine-local protected credentials are loaded only by the technician launcher.
-                string settings=Path.Combine(root,".runtime","operator-settings.json");
-                string userSettings=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"VoaDesk","operator-settings.json");
-                if(!File.Exists(settings)&&File.Exists(userSettings))settings=userSettings;
-                var start=new ProcessStartInfo(node,"\""+server+"\" --open") { WorkingDirectory=root,UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardError=true };
-                start.EnvironmentVariables.Remove("VOADESK_PAIRING_URL");
-                start.EnvironmentVariables.Remove("VOADESK_OPERATOR_TOKEN");
-                start.EnvironmentVariables["VOADESK_MODE"]="desktop";
-                bool online=Array.IndexOf(args,"--online")>=0;
-                if(online&&!File.Exists(settings))throw new Exception("Este computador de técnico ainda não está configurado. Solicite o provisionamento autorizado da credencial do operador.");
-                if(online)start.Arguments+=" --online";
-                if(online&&File.Exists(settings)) {
-                    var json=new System.Web.Script.Serialization.JavaScriptSerializer();
-                    var values=json.Deserialize<System.Collections.Generic.Dictionary<string,string>>(File.ReadAllText(settings));
-                    start.EnvironmentVariables["VOADESK_PAIRING_URL"]=values["server"];
-                    start.EnvironmentVariables["VOADESK_OPERATOR_TOKEN"]=values.ContainsKey("protectedToken") ? System.Text.Encoding.UTF8.GetString(System.Security.Cryptography.ProtectedData.Unprotect(Convert.FromBase64String(values["protectedToken"]),null,System.Security.Cryptography.DataProtectionScope.CurrentUser)) : values["token"];
-                }
-                using(var child=Process.Start(start)) { string errors=child.StandardError.ReadToEnd(); child.WaitForExit(); if(child.ExitCode!=0)MessageBox.Show("Não foi possível iniciar o VoaDesk. Verifique Node.js, a configuração do servidor e se há outra janela aberta.","VoaDesk",MessageBoxButtons.OK,MessageBoxIcon.Error); }
-                mutex.ReleaseMutex();
-            }
-            return 0;
-        } catch (Exception e) { MessageBox.Show(DescribeError(e), "VoaDesk · Não foi possível iniciar", MessageBoxButtons.OK,MessageBoxIcon.Error); return 1; }
-    }
+ public static string DescribeError(Exception error){
+  if(error is UnauthorizedAccessException)return "O Windows negou acesso a um arquivo do VoaDesk. A conta que abre o aplicativo precisa de permissao na configuracao local.\n\n"+error.Message;
+  if(error is System.Security.Cryptography.CryptographicException)return "A credencial do VoaDesk pertence a outra conta do Windows. Configure o operador para esta conta.";
+  var processError=error as System.ComponentModel.Win32Exception;
+  if(processError!=null&&(processError.NativeErrorCode==2||processError.NativeErrorCode==3))return "Node.js portatil nao encontrado. Extraia novamente o pacote completo do VoaDesk Tecnico.";
+  return error.Message;
+ }
+ [DllImport("user32.dll")]static extern bool SetProcessDpiAwarenessContext(IntPtr context);
+ [DllImport("shell32.dll")]static extern int SetCurrentProcessExplicitAppUserModelID(string id);
+ [STAThread]public static int Main(string[] args){
+  try{SetProcessDpiAwarenessContext(new IntPtr(-4));}catch{}SetCurrentProcessExplicitAppUserModelID("VoaDesk.Technician");Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+  try{
+   string folder=AppDomain.CurrentDomain.BaseDirectory,root=File.Exists(Path.Combine(folder,"src","host","server.mjs"))?folder:Directory.GetParent(folder.TrimEnd(Path.DirectorySeparatorChar)).FullName;
+   foreach(string name in new[]{"Microsoft.Web.WebView2.Core.dll","Microsoft.Web.WebView2.WinForms.dll","WebView2Loader.dll"})if(!File.Exists(Path.Combine(folder,name)))throw new InvalidOperationException("Extraia a pasta completa do VoaDesk Tecnico. Dependencia ausente: "+name);
+   return Run(root,args);
+  }catch(Exception error){MessageBox.Show(DescribeError(error),"VoaDesk Tecnico - nao foi possivel iniciar",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;}
+ }
+ [MethodImpl(MethodImplOptions.NoInlining)]static int Run(string root,string[] args){
+  bool acquired;using(var mutex=new Mutex(true,"Local\\VoaDesk.Principal",out acquired)){
+   if(!acquired){try{EventWaitHandle.OpenExisting("Local\\VoaDesk.Principal.Show").Set();}catch{}return 0;}
+   bool online=Array.IndexOf(args,"--local")<0&&(Array.IndexOf(args,"--online")>=0||File.Exists(Path.Combine(root,"modo-online.flag")));
+   using(var show=new EventWaitHandle(false,EventResetMode.AutoReset,"Local\\VoaDesk.Principal.Show"))using(var window=new TechnicianWindow(root,online)){
+    var registration=ThreadPool.RegisterWaitForSingleObject(show,delegate(object state,bool timeout){if(window.IsHandleCreated&&!window.IsDisposed)try{window.BeginInvoke(new Action(window.Reveal));}catch{}},null,-1,false);
+    Application.Run(window);registration.Unregister(null);
+   }mutex.ReleaseMutex();
+  }return 0;
+ }
 }

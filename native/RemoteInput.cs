@@ -13,6 +13,8 @@ public sealed class RemoteInput : IDisposable {
     readonly HashSet<int> keys=new HashSet<int>(); readonly HashSet<int> buttons=new HashSet<int>(); readonly Action<INPUT> sink; bool enabled;
     public bool Enabled { get{return enabled;} set{if(!value)Release();enabled=value;} }
     public int Held { get{return keys.Count+buttons.Count;} }
+    public Rectangle TargetBounds=Screen.PrimaryScreen.Bounds;
+    public static Point MapDesktop(double x,double y,Rectangle target,Rectangle desktop){var p=Map(x,y,target.Width,target.Height);return new Point((int)Math.Round((target.Left+p.X-desktop.Left)*65535.0/Math.Max(1,desktop.Width-1)),(int)Math.Round((target.Top+p.Y-desktop.Top)*65535.0/Math.Max(1,desktop.Height-1)));}
     public RemoteInput(Action<INPUT> testSink=null){sink=testSink;}
     void Send(INPUT value){if(sink!=null)sink(value);else if(SendInput(1,new[]{value},Marshal.SizeOf(typeof(INPUT)))!=1){enabled=false;throw new InvalidOperationException("Entrada bloqueada pelo Windows.");}}
     void Mouse(uint flags,int x=0,int y=0,int delta=0){Send(new INPUT{type=0,data=new UNION{mouse=new MOUSE{dx=x,dy=y,flags=flags,mouseData=unchecked((uint)delta)}}});}
@@ -33,7 +35,7 @@ public sealed class RemoteInput : IDisposable {
         if(type=="keyDown"||type=="keyUp"){int scan;if(!scans.TryGetValue(Convert.ToString(e["code"]),out scan))return;bool up=type=="keyUp";if(up){if(keys.Remove(scan))Key(scan,true);}else if(keys.Add(scan))Key(scan,false);return;}
         if(type=="wheel"){Mouse(0x800,0,0,(int)Math.Round(Convert.ToDouble(e["delta"])));return;}
         if(type=="move"||type=="down"||type=="up"){
-            var p=Map(Convert.ToDouble(e["x"]),Convert.ToDouble(e["y"]),65536,65536);Mouse(0x8001,p.X,p.Y);
+            var p=MapDesktop(Convert.ToDouble(e["x"]),Convert.ToDouble(e["y"]),TargetBounds,SystemInformation.VirtualScreen);Mouse(0xC001,p.X,p.Y);
             if(type!="move"){int b=Convert.ToInt32(e["button"]);if(type=="down"){if(buttons.Add(b))Mouse(b==0?2u:b==1?32u:8u);}else if(buttons.Remove(b))Mouse(b==0?4u:b==1?64u:16u);}
         }
     }
@@ -41,10 +43,11 @@ public sealed class RemoteInput : IDisposable {
 }
 public sealed class GuideOverlay : Form {
     readonly Timer timer=new Timer(); Point mark;
+    public Rectangle TargetBounds=Screen.PrimaryScreen.Bounds;
     public GuideOverlay(){FormBorderStyle=FormBorderStyle.None;ShowInTaskbar=false;TopMost=true;BackColor=Color.Magenta;TransparencyKey=Color.Magenta;DoubleBuffered=true;Bounds=Screen.PrimaryScreen.Bounds;timer.Interval=2000;timer.Tick+=delegate{timer.Stop();Hide();};}
     protected override bool ShowWithoutActivation { get{return true;} }
     protected override CreateParams CreateParams { get{var cp=base.CreateParams;cp.ExStyle|=0x08000020;return cp;} }
-    public void PointAt(double x,double y){Bounds=Screen.PrimaryScreen.Bounds;mark=RemoteInput.Map(x,y,Bounds.Width,Bounds.Height);Show();Invalidate();timer.Stop();timer.Start();}
+    public void PointAt(double x,double y){Bounds=TargetBounds;mark=RemoteInput.Map(x,y,Bounds.Width,Bounds.Height);Show();Invalidate();timer.Stop();timer.Start();}
     protected override void OnPaint(PaintEventArgs e){base.OnPaint(e);e.Graphics.SmoothingMode=System.Drawing.Drawing2D.SmoothingMode.AntiAlias;using(var pen=new Pen(Color.FromArgb(0,91,255),5)){e.Graphics.DrawEllipse(pen,mark.X-24,mark.Y-24,48,48);e.Graphics.DrawLine(pen,mark.X-8,mark.Y,mark.X+8,mark.Y);e.Graphics.DrawLine(pen,mark.X,mark.Y-8,mark.X,mark.Y+8);}}
     protected override void Dispose(bool disposing){if(disposing)timer.Dispose();base.Dispose(disposing);}
 }

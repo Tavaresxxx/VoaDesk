@@ -18,8 +18,8 @@ public static class NativeBridgeSmoke {
     using(var tech=new HttpClient()){
      tech.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("VOADESK_TEST_OPERATOR_TOKEN"));
      step="request";var r=await tech.PostAsync(new Uri(new Uri(args[0]),"v3/operator/request"),new StringContent("{\"code\":\""+label.Text+"\"}",Encoding.UTF8,"application/json"));r.EnsureSuccessStatusCode();var request=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(await r.Content.ReadAsStringAsync());tech.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Convert.ToString(request["token"]));
-     var deadline=Stopwatch.StartNew();while(!form.Controls.OfType<Button>().Any(b=>b.Text=="Permitir controle"&&b.Enabled)&&deadline.Elapsed.TotalSeconds<5)await Task.Delay(50);
-     step="consent";form.Controls.OfType<Button>().First(b=>b.Text=="Permitir controle").PerformClick();deadline.Restart();while(form.LastCaptureTicket==null&&deadline.Elapsed.TotalSeconds<5)await Task.Delay(50);if(form.LastCaptureTicket==null)throw new Exception("No consent ticket; screens="+Screen.AllScreens.Length);
+     var deadline=Stopwatch.StartNew();while(!form.Controls.OfType<Button>().Any(b=>b.Text=="Aceitar conexão"&&b.Enabled)&&deadline.Elapsed.TotalSeconds<5)await Task.Delay(50);
+     step="consent";form.Controls.OfType<Button>().First(b=>b.Text=="Aceitar conexão").PerformClick();deadline.Restart();while(form.LastCaptureTicket==null&&deadline.Elapsed.TotalSeconds<5)await Task.Delay(50);if(form.LastCaptureTicket==null)throw new Exception("No consent ticket; screens="+Screen.AllScreens.Length);
      step="capture-ticket";using(var capture=new HttpClient(new HttpClientHandler{CookieContainer=new CookieContainer()})){
       var boot=await capture.GetAsync(new Uri(new Uri(args[0]),"support/bootstrap?ticket="+form.LastCaptureTicket));boot.EnsureSuccessStatusCode();
       capture.DefaultRequestHeaders.Add("Origin",args[0].TrimEnd('/'));capture.DefaultRequestHeaders.Add("X-VoaDesk","1");
@@ -32,7 +32,7 @@ public static class NativeBridgeSmoke {
        step="delayed-revocation";await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/arm"));
        deadline.Restart();while(await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/held"))!="true"&&deadline.Elapsed.TotalSeconds<3)await Task.Delay(20);
        if(deadline.Elapsed.TotalSeconds>=3)throw new Exception("Delayed response was not held.");
-       form.Controls.OfType<Button>().First(b=>b.Text=="Permitir visualizar").PerformClick();
+       form.Controls.OfType<Button>().First(b=>b.Text=="Encerrar / recusar atendimento").PerformClick();
        await Task.Delay(150);int afterRevoke=sent.Count;
        await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/release"));await Task.Delay(350);
        if(sent.Count!=afterRevoke||sent.Any(i=>i.type==1&&i.data.key.scan==44&&(i.data.key.flags&2)==0))throw new Exception("Stale response restored input after revocation.");

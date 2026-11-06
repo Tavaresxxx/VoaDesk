@@ -7,5 +7,6 @@ dist/
 src/assets/
 instalação/
 instalacao/
-artifacts/*.png
-artifacts/*-raw.json
+artifacts/
+*.user
+*.suo

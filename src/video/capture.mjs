@@ -1,61 +1,65 @@
-import { peer,prefer,gather,applyQuality } from './shared.mjs';
-import { StatsSampler } from './stats.mjs';
-import { QualityPolicy } from './quality.mjs';
-const $=id=>document.getElementById(id),post=(route,value)=>fetch('/support/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-VoaDesk':'1'},body:JSON.stringify(value)});
-let pc,stream,sender,control,closed=false,selecting=false,applied=false,lastStats={},busy=false,qualityQueue=Promise.resolve(),inputSending=false;const pendingInput=[],policy=new QualityPolicy(),sampler=new StatsSampler();
-async function flushInput(){
-  if(inputSending||closed)return;inputSending=true;
-  try{while(pendingInput.length&&!closed){const events=pendingInput.splice(0,8),r=await post('input',{events});if(!r.ok&&r.status!==400)throw new Error();}}
-  catch{await stop();}finally{inputSending=false;}
+import {peer,prefer,gather,applyQuality} from './shared.mjs';
+import {StatsSampler} from './stats.mjs';
+import {QualityPolicy} from './quality.mjs';
+import {fileRpc,fileInfo,toBase64,fromBase64} from './files.mjs';
+const $=id=>document.getElementById(id);
+async function post(route,value={}){const r=await fetch('/support/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-VoaDesk':'1'},body:JSON.stringify(value)}),data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.message||'Operação indisponível ou atendimento encerrado.');return data;}
+async function nativeGet(route){const r=await fetch('/support/native/'+route);if(!r.ok)throw new Error('Atualize e abra o aplicativo VoaDeskCliente para compartilhar todos os monitores.');return r.json();}
+let pc,stream,sender,control,files,closed=false,starting=false,applied=false,lastStats={},busy=false,qualityQueue=Promise.resolve(),inputSending=false,native,frameTimer,frameBusy=false,switching=false;
+const canvas=document.createElement('canvas'),context=canvas.getContext('2d',{alpha:false}),pendingInput=[],policy=new QualityPolicy(),sampler=new StatsSampler();
+const notice=text=>{if(control?.readyState==='open')control.send(JSON.stringify({type:'qualityNotice',text}));};
+const monitors=()=>{if(control?.readyState==='open')control.send(JSON.stringify({type:'monitors',...native}));};
+async function frame(){
+ if(closed||frameBusy||switching)return;frameBusy=true;const selected=native.selected;
+ try{const r=await fetch('/support/native/frame?'+encodeURIComponent(selected));if(!r.ok)throw new Error();const bitmap=await createImageBitmap(await r.blob());try{if(!closed&&selected===native.selected){if(canvas.width!==bitmap.width||canvas.height!==bitmap.height){canvas.width=bitmap.width;canvas.height=bitmap.height;}context.drawImage(bitmap,0,0);}}finally{bitmap.close();}}
+ catch{await stop();}finally{frameBusy=false;}
 }
-function queueInput(data){
-  if(closed)return;
-  if(data.type==='move'&&pendingInput.at(-1)?.type==='move')pendingInput.pop();
-  if(pendingInput.length>=64)throw new Error('Fila de entrada excedida.');
-  pendingInput.push(data);void flushInput();
-}
+async function flushInput(){if(inputSending||closed)return;inputSending=true;try{while(pendingInput.length&&!closed)await post('input',{events:pendingInput.splice(0,8)});}catch{await stop();}finally{inputSending=false;}}
+function queueInput(data){if(closed||switching)return;if(data.type==='move'&&pendingInput.at(-1)?.type==='move')pendingInput.pop();if(pendingInput.length>=64)throw new Error('Fila excedida.');pendingInput.push(data);void flushInput();}
 const adjust=()=>qualityQueue=qualityQueue.catch(()=>{}).then(()=>applyQuality(sender,stream.getVideoTracks()[0],policy));
-async function stop(notify=true,reason='Sua tela não está sendo compartilhada.'){if(closed)return;closed=true;clearInterval(timer);stream?.getTracks().forEach(t=>t.stop());pc?.close();$('share').disabled=$('end').disabled=true;$('capture-title').textContent='Tudo encerrado.';$('status').textContent='Atendimento encerrado. '+reason;document.body.dataset.state='ended';if(notify)await post('end',{}).catch(()=>{});}
-$('end').onclick=()=>void stop();
-$('share').onclick=async()=>{
-  if(selecting||closed)return;selecting=true;$('share').disabled=true;document.body.dataset.state='connecting';$('capture-title').textContent='Escolha o que compartilhar.';$('status').textContent='Selecione a tela na janela do navegador para continuar.';
-  try {
-    // Called directly from the explicit click; never bypass the browser selector.
-    stream=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'monitor',frameRate:{ideal:60,max:60}},audio:false,selfBrowserSurface:'exclude',surfaceSwitching:'exclude'});
-    if(closed){stream.getTracks().forEach(t=>t.stop());return;}
-    const track=stream.getVideoTracks()[0];if(track.getSettings().displaySurface!=='monitor')throw new Error('Selecione um monitor inteiro.');
-    track.onended=()=>void stop();
-    pc=peer();sender=pc.addTransceiver(track,{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
-    const wire=e=>{
-      if(e.channel.label==='control')control=e.channel;
-      e.channel.onmessage=async event=>{
-        try {const data=JSON.parse(event.data);
-          if(data.type==='quality'){policy.choose(data.preference,data.automatic);await adjust();return;}
-          if(data.type==='feedback'){const text=policy.sample({...lastStats,...data.stats});if(text){await adjust();control?.send(JSON.stringify({type:'qualityNotice',text,level:policy.level}));}return;}
-          queueInput(data);
-        }catch{await stop();}
-      };
-    };
-    wire({channel:pc.createDataChannel('control',{ordered:true})});
-    wire({channel:pc.createDataChannel('pointer',{ordered:false,maxRetransmits:0})});
-    pc.onconnectionstatechange=()=>{if(['failed','disconnected','closed'].includes(pc.connectionState))void stop();};
-    await applyQuality(sender,track,policy);await pc.setLocalDescription(await pc.createOffer());await gather(pc);
-    if(closed)return;const r=await post('signal',pc.localDescription);if(!r.ok)throw new Error('Autorização encerrada.');
-    $('status').textContent='Conectando ao técnico…';
-  }catch(error){await stop(true,error.name==='NotAllowedError'?'A escolha da tela foi cancelada. Solicite um novo atendimento para tentar novamente.':(error.message||'Não foi possível compartilhar. Solicite um novo atendimento.'));}finally{selecting=false;}
-};
+async function stop(notify=true,reason='Sua tela não está sendo compartilhada.'){
+ if(closed)return;closed=true;clearInterval(timer);clearInterval(frameTimer);files?.close();stream?.getTracks().forEach(t=>t.stop());pc?.close();$('share').disabled=$('end').disabled=true;$('capture-title').textContent='Tudo encerrado.';$('status').textContent='Atendimento encerrado. '+reason;document.body.dataset.state='ended';
+ if(notify){await post('end').catch(()=>{});await post('native/stop').catch(()=>{});}
+}
+$('end').onclick=()=>void stop();$('share').hidden=true;
+async function fileOperation(action,value){
+ if(closed)throw new Error('Atendimento encerrado.');
+ if(['list','open-read','open-write','finish','cancel'].includes(action)){if(action==='open-write')fileInfo(value);return post('native/'+action,value);}
+ if(action==='read'){const r=await fetch('/support/native/read',{method:'POST',headers:{'Content-Type':'application/json','X-VoaDesk':'1'},body:JSON.stringify(value)});if(!r.ok)throw new Error('Falha ao ler o arquivo.');return {chunk:toBase64(await r.arrayBuffer())};}
+ if(action==='write'){const bytes=fromBase64(value.chunk),r=await fetch('/support/native/write?'+encodeURIComponent(value.id),{method:'POST',headers:{'X-VoaDesk':'1'},body:bytes});if(!r.ok)throw new Error('Falha ao gravar o arquivo.');return {ok:true};}
+ throw new Error('Operação de arquivo desconhecida.');
+}
+async function start(){
+ if(starting||closed||pc)return;starting=true;
+ try{
+  native=await nativeGet('state');Object.assign(native,await post('native/select',{id:native.selected}));await frame();if(closed)return;
+  stream=canvas.captureStream(15);pc=peer();sender=pc.addTransceiver(stream.getVideoTracks()[0],{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
+  control=pc.createDataChannel('control',{ordered:true});control.onopen=monitors;
+  const receive=async event=>{let type;try{const data=JSON.parse(event.data);type=data.type;
+   if(data.type==='quality'){policy.choose(data.preference,data.automatic);await adjust();return;}
+   if(data.type==='feedback'){const text=policy.sample({...lastStats,...data.stats});if(text){await adjust();notice(text);}return;}
+   if(data.type==='monitor'){
+    if(switching)return;switching=true;pendingInput.length=0;
+    try{await post('input',{type:'release'});const result=await post('native/select',{id:data.id});native.selected=result.selected;native.generation=result.generation;}finally{switching=false;}
+    await frame();monitors();return;
+   }
+   if(data.type==='shortcut'){await post('native/shortcut',{action:data.action});return;}
+
+   queueInput(data);
+  }catch(e){notice(e.message);if(!['monitor','shortcut'].includes(type))await stop();else monitors();}};
+  control.onmessage=receive;pc.createDataChannel('pointer',{ordered:false,maxRetransmits:0}).onmessage=receive;
+  files=fileRpc(pc.createDataChannel('files',{ordered:true}),fileOperation);
+  pc.onconnectionstatechange=()=>{if(['failed','disconnected','closed'].includes(pc.connectionState))void stop();};
+  frameTimer=setInterval(()=>void frame(),1000/15);
+  await adjust();await pc.setLocalDescription(await pc.createOffer());await gather(pc);if(closed)return;await post('signal',pc.localDescription);
+  $('status').textContent='Conectando ao técnico…';document.body.dataset.state='connecting';
+ }catch(e){await stop(true,e.message);}finally{starting=false;}
+}
 const timer=setInterval(async()=>{
-  if(closed||busy)return;busy=true;
-  try{
-    const response=await fetch('/support/state');if(!response.ok)throw new Error();
-    const state=await response.json();if(!['approved','active'].includes(state.state))throw new Error();
-    if(!pc&&!selecting){$('capture-title').textContent='Você escolhe o que mostrar.';$('status').textContent=state.operatorName+' · '+(state.permission==='control'?'controle autorizado':'somente visualização')+'. Escolha sua tela para começar.';$('share').disabled=false;document.body.dataset.state='ready';}
-    if(pc&&state.answer&&!applied){applied=true;await pc.setRemoteDescription(state.answer);}
-    if(pc?.connectionState==='connected'){
-      $('capture-title').textContent='Sua tela está compartilhada.';document.body.dataset.state='active';
-      $('status').textContent='Tela compartilhada · '+state.operatorName+' · '+(state.permission==='control'?'controle autorizado':'somente visualização');
-      lastStats=sampler.sample(await pc.getStats());await post('stats',lastStats);
-    }
-  }catch{await stop(false);}finally{busy=false;}
+ if(closed||busy)return;busy=true;
+ try{const r=await fetch('/support/state');if(!r.ok)throw new Error();const state=await r.json();if(!['approved','active'].includes(state.state)||state.permission!=='control')throw new Error();
+  if(!pc&&!starting)await start();if(pc&&state.answer&&!applied){applied=true;await pc.setRemoteDescription(state.answer);}
+  if(pc?.connectionState==='connected'){$('capture-title').textContent='Atendimento conectado.';$('status').textContent=state.operatorName+' pode controlar, trocar de monitor e transferir arquivos. Você pode encerrar a qualquer momento.';document.body.dataset.state='active';lastStats=sampler.sample(await pc.getStats());await post('stats',lastStats);}
+ }catch{await stop(false);}finally{busy=false;}
 },1000);
-window.addEventListener('pagehide',()=>{stream?.getTracks().forEach(t=>t.stop());pc?.close();void post('end',{});});
+window.addEventListener('pagehide',()=>{stream?.getTracks().forEach(t=>t.stop());pc?.close();void post('end').catch(()=>{});void post('native/stop').catch(()=>{});});

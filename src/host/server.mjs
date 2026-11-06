@@ -22,6 +22,8 @@ const assets = new Map([
   ['/symbol.png', ['src/assets/symbol.png', 'image/png']],
   ['/voadesk.ico', ['src/assets/voadesk.ico', 'image/x-icon']],
   ['/session.mjs', ['src/ui/session.mjs', 'text/javascript']],
+  ['/session-files.mjs', ['src/ui/session-files.mjs', 'text/javascript']],
+  ['/video/files.mjs', ['src/video/files.mjs', 'text/javascript']],
   ['/video/quality.mjs', ['src/video/quality.mjs', 'text/javascript']],
   ['/video/peer.mjs', ['src/video/peer.mjs', 'text/javascript']],
   ['/video/pipeline.mjs', ['src/video/pipeline.mjs', 'text/javascript']],
@@ -53,7 +55,7 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
   const token = randomBytes(32).toString('base64url');
   const cookie = randomBytes(32).toString('base64url');
   const bootstrapExpires = Date.now() + 120000;
-  let sessionToken = null;
+  let sessionToken = null, pendingSessionRequest=null, shuttingDown=false, closing=null;
   let bootstrapped = false;
   let lastHeartbeat = Date.now();
   const env = environment ?? await probeEnvironment();
@@ -98,16 +100,18 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
         }catch{return response(res,503,JSON.stringify({message:'Não foi possível abrir o cliente. Baixe o aplicativo e tente novamente.'}),'application/json');}
       }
       if (url.pathname.startsWith('/api/session/')) {
+        if(shuttingDown)return response(res,503,'{}','application/json');
         if (!pairing) return response(res, 503, '{}', 'application/json');
         const action=url.pathname.slice('/api/session/'.length);
         if(!['request','state','signal','end'].includes(action)||req.method!=='POST')return response(res,404);
         const payload=await readJson(req,res,action==='signal'?110000:2048);
         const auth=action==='request'?pairing.token:sessionToken;
         if(!auth)return response(res,403,'{}','application/json');
-        const upstream=await fetch(new URL('/v3/operator/'+action,pairing.url),{method:'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(5000)});
+        const operation=(async()=>{const upstream=await fetch(new URL('/v3/operator/'+action,pairing.url),{method:'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(5000)});
         const result=await upstream.json();
         if(action==='request'&&upstream.ok){sessionToken=result.token;delete result.token;}
         return response(res,upstream.status,JSON.stringify(result),'application/json');
+        })().catch(()=>{if(!res.headersSent)response(res,503,JSON.stringify({message:'O servidor de atendimento está indisponível. Tente novamente.'}),'application/json');else res.end();});if(action==='request')pendingSessionRequest=operation;try{await operation;}finally{if(pendingSessionRequest===operation)pendingSessionRequest=null;}return;
       }
       if (url.pathname === '/api/pairing/config' && req.method === 'GET') return response(res, 200, JSON.stringify({ available: Boolean(pairing), scope: 'pairing-only', remote: pairing?.url?.startsWith('https:') ?? false,version,receiverAvailable:Boolean(pairing)&&(Boolean(launchClient)||existsSync(clientFile)) }), 'application/json');
       if (url.pathname === '/api/pairing/verify' && req.method === 'POST') {
@@ -152,21 +156,14 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
   const timer = idleTimeout ? setInterval(() => { if (Date.now() - lastHeartbeat > idleTimeout) server.close(); }, 5000) : null;
   timer?.unref();
   server.on('close', () => clearInterval(timer));
-  return { server, origin, bootstrapUrl: `${origin}/bootstrap?token=${token}`, close: () => { clearInterval(timer); server.closeAllConnections(); return new Promise(r => server.close(r)); } };
-}
-
-export function openApp(url, dataDir = join(root, '.runtime')) {
-  const candidates = [join(process.env['ProgramFiles(x86)'] ?? '', 'Microsoft/Edge/Application/msedge.exe'), join(process.env.ProgramFiles ?? '', 'Microsoft/Edge/Application/msedge.exe')];
-  const edge = candidates.find(existsSync);
-  if (!edge) throw new Error('Microsoft Edge não encontrado. Instale o Edge para abrir o VoaDesk.');
-  const child = spawn(edge, [`--app=${url}`, `--user-data-dir=${join(dataDir, 'voadesk-edge-profile')}`, '--no-first-run', '--disable-background-mode', '--disable-extensions', '--disable-features=WebRtcHideLocalIpsWithMdns', '--window-size=1380,920'], { stdio: 'ignore', windowsHide: false, detached: true });
-  child.unref();
-  const branding = join(root, 'dist/VoaDeskWindow.exe');
-  if (existsSync(branding) && child.pid) { const helper = spawn(branding, [String(child.pid)], { stdio: 'ignore', windowsHide: true }); helper.unref(); }
-  return child;
+  async function close(){if(closing)return closing;shuttingDown=true;closing=(async()=>{clearInterval(timer);await pendingSessionRequest?.catch(()=>{});if(sessionToken&&pairing)try{await fetch(new URL('/v3/operator/end',pairing.url),{method:'POST',headers:{Authorization:'Bearer '+sessionToken,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(5000)});}catch{/* Presence leases still expire; never restore consent. */}sessionToken=null;server.closeAllConnections();await new Promise(r=>server.close(r));})();return closing;}
+  // nativeSession is private process IPC, never an HTTP response or a browser-visible URL.
+  return { server, origin, bootstrapUrl: `${origin}/bootstrap?token=${token}`, nativeSession:{origin,cookie},close };
 }
 
 export async function runDesktopApp() {
+  const native=process.argv.includes('--native-shell');
+  if(process.argv.includes('--open')&&!native){const app=join(root,'dist/VoaDeskTecnico.exe');if(!existsSync(app))throw new Error('Compile ou extraia o aplicativo Windows completo do VoaDesk Técnico.');const child=spawn(app,process.argv.includes('--online')?['--online']:[],{cwd:root,stdio:'ignore',windowsHide:false,detached:true});child.unref();return null;}
   let embedded;
   let pairing;
   const remoteUrl = process.argv.includes('--online') ? process.env.VOADESK_PAIRING_URL : null;
@@ -177,13 +174,19 @@ export async function runDesktopApp() {
     if (!process.env.VOADESK_OPERATOR_TOKEN) throw new Error('Configure a credencial do operador no computador do técnico.');
     pairing = { url: url.origin, token: process.env.VOADESK_OPERATOR_TOKEN };
   } else {
-    embedded = await createPairingService({ port: 47832, devices: new DeviceRegistry({ file: join(root, '.runtime', 'pairing-devices.json') }), operatorName: 'Operador local · ' + os.userInfo().username });
+    const localPort=native&&process.env.VOADESK_TEST_DATA_DIR?Number(process.env.VOADESK_LOCAL_PAIRING_PORT??47832):47832;
+    embedded = await createPairingService({ port: localPort, devices: new DeviceRegistry({ file: join(native&&process.env.VOADESK_TEST_DATA_DIR?process.env.VOADESK_TEST_DATA_DIR:join(root,'.runtime'), 'pairing-devices.json') }), operatorName: 'Operador local · ' + os.userInfo().username });
     pairing = { url: embedded.origin, token: embedded.operatorToken };
   }
-  const host = await createHost({ pairing });
+  const host = await createHost({ pairing,...(native&&process.env.VOADESK_TEST_DATA_DIR?{dataDir:process.env.VOADESK_TEST_DATA_DIR}:{}),...(native?{idleTimeout:0}:{}) });
   host.server.on('close', () => { if (embedded) void embedded.close(); });
-  if (process.argv.includes('--open')) {
-    try { openApp(host.bootstrapUrl); } catch (error) { console.error(error.message); await host.close(); process.exitCode = 1; }
+  if(native){
+    // The owning Windows process alone reads stdout. No credential is printed to a console or put in arguments/URLs.
+    if(!process.stdin.isTTY&&process.stdout.isTTY!==true){
+      const shutdown=async()=>{await host.close();await embedded?.close();process.exit(0);};
+      let command='';process.stdin.setEncoding('utf8');process.stdin.on('data',data=>{command+=data;if(command.length>1024||command.includes('\n')){if(command.trim()==='shutdown')void shutdown();else if(command.length>1024)void shutdown();command='';}});process.stdin.once('end',()=>void shutdown());
+      process.stdout.write(JSON.stringify({type:'ready',...host.nativeSession,pairingOrigin:pairing.url})+'\n');
+    }else{await host.close();throw new Error('O modo nativo requer o aplicativo Windows.');}
   } else {
     // Bootstrap credential is not printed. CLI requires --open; tests import createHost.
     console.log('VoaDesk local pronto. Use npm start para abrir a janela.');

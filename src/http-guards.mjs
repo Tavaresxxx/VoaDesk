@@ -6,16 +6,22 @@ export class RequestError extends Error {
 export function readJson(req, res, limit, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    let size = 0;
+    let size = 0, finished=false;
     const cleanup = () => {
       clearTimeout(timer);
       req.off('data', data); req.off('end', end); req.off('error', error); req.off('aborted', aborted);
     };
     const fail = failure => {
+      if(finished)return;finished=true;
       cleanup();
-      req.pause();
       if (!res.headersSent) res.setHeader('Connection', 'close');
-      reject(failure);
+      if(req.destroyed||req.readableEnded){reject(failure);return;}
+      // Complete a small in-flight chunked body before replying. Closing a Windows socket
+      // with unread chunk framing can reset TCP before the caller receives the HTTP 413.
+      // No more JSON is buffered or parsed: discard <=64 KiB for <=100 ms, then reject.
+      let discarded=0,done=false;const finish=()=>{if(done)return;done=true;clearTimeout(drainTimer);req.off('data',discard);req.off('end',finish);req.off('close',finish);req.off('error',finish);req.off('aborted',finish);if(!req.readableEnded)req.pause();reject(failure);};
+      const discard=chunk=>{discarded+=chunk.length;if(discarded>65536)finish();};
+      const drainTimer=setTimeout(finish,100);drainTimer.unref();req.on('data',discard);req.once('end',finish);req.once('close',finish);req.once('error',finish);req.once('aborted',finish);req.resume();
     };
     const error = () => fail(new RequestError(400, 'INVALID_REQUEST'));
     const aborted = () => error();
@@ -25,6 +31,7 @@ export function readJson(req, res, limit, timeoutMs = 5000) {
       chunks.push(chunk);
     };
     const end = () => {
+      if(finished)return;finished=true;
       cleanup();
       try {
         const value = size ? JSON.parse(Buffer.concat(chunks, size).toString('utf8')) : {};

@@ -14,7 +14,7 @@
       <button class="nav-item" data-page="clients"><span class="nav-symbol" aria-hidden="true">▤</span> Clientes salvos <span id="client-count" class="nav-count"></span></button>
       <button class="nav-item" data-page="help"><span class="nav-symbol" aria-hidden="true">?</span> Ajuda e diagnóstico</button>
     </nav>
-    <div class="rail-bottom"><span>Seu suporte. Mais perto.</span><small class="version">VoaDesk <span data-version>0.5.0</span></small></div>
+    <div class="rail-bottom"><span>Seu suporte. Mais perto.</span><small class="version">VoaDesk <span data-version>0.6.0</span></small></div>
   </aside>
   <main>
     <header class="app-header"><span id="page-label">Visão geral</span><span id="connection-state" class="service-status" role="status">Conferindo serviço…</span></header>
@@ -29,7 +29,7 @@
             <button class="primary access-action" id="verify-code" disabled><span>Solicitar acesso</span><span aria-hidden="true">↗</span></button>
             <p id="access-message" class="message" role="status" aria-live="polite">Conferindo serviço…</p>
           </form>
-          <p class="permission-note">O cliente escolhe o que permitir antes da conexão.</p>
+          <p class="permission-note">O cliente aceita o controle, os monitores e a transferência de arquivos antes da conexão.</p>
         </section>
         <section class="receive-section" aria-labelledby="receive-heading">
           <span class="step-label">02 / RECEBER</span><h2 id="receive-heading">Receber acesso</h2><p class="section-description">Precisa de uma mão? Abra seu código e envie para quem vai ajudar.</p>
@@ -50,10 +50,10 @@
     <section id="help-page" class="page" hidden aria-labelledby="help-heading">
       <div class="page-heading"><div><span class="eyebrow">QUANDO PRECISAR</span><h1 id="help-heading">Vamos por partes.</h1><p>As respostas essenciais, sem complicação.</p></div></div>
       <div class="help-layout"><div class="help-articles">
-        <details open><summary>Como receber ajuda?</summary><p>Em Início, selecione Abrir meu código. Envie o código exibido para a pessoa que vai ajudar. Quando a solicitação chegar, escolha se ela poderá apenas visualizar ou também controlar.</p></details>
-        <details><summary>Como acessar um dispositivo?</summary><p>Peça para o cliente abrir o VoaDesk, digite o código e selecione Solicitar acesso. Aguarde a autorização e a escolha da tela no computador do cliente.</p></details>
+        <details open><summary>Como receber ajuda?</summary><p>Em Início, selecione Abrir meu código. Envie o código exibido para a pessoa que vai ajudar. Quando a solicitação chegar, clique em Aceitar conexão para autorizar controle, acesso aos monitores e transferência de arquivos.</p></details>
+        <details><summary>Como acessar um dispositivo?</summary><p>Peça para o cliente abrir o VoaDesk, digite o código e selecione Solicitar acesso. Aguarde a autorização. Depois, use a barra do atendimento para trocar de monitor.</p></details>
         <details><summary>Como interromper um atendimento?</summary><p>Selecione Encerrar atendimento em qualquer uma das pontas. Para liberar o teclado remoto sem encerrar, pressione Escape.</p></details>
-        <details><summary>O que esta versão precisa?</summary><p>Esta prévia atende computadores Windows na mesma rede local, com internet para sinalização. O cliente precisa selecionar um monitor SDR. Aplicativos elevados e conexões entre redes diferentes não têm suporte validado.</p></details>
+        <details><summary>O que esta versão precisa?</summary><p>Esta prévia atende computadores Windows na mesma rede local, com internet para sinalização. Os monitores do cliente precisam operar em SDR. Aplicativos elevados e conexões entre redes diferentes não têm suporte validado.</p></details>
       </div><div>
         <section class="connection-panel" aria-labelledby="diagnostic-heading"><h2 id="diagnostic-heading">Diagnóstico</h2><p class="help">Use se algo não estiver respondendo.</p><button id="check-connection" class="secondary" type="button">Verificar conexão</button><p id="diagnostic-summary" class="message" role="status">Nenhuma verificação executada.</p><details><summary>Detalhes técnicos</summary><dl id="diagnostic-details"></dl><p class="help">RTT não mede o tempo completo entre ação e retorno visual.</p></details></section>
       </div></div>
@@ -62,13 +62,13 @@
       <div class="session-toolbar"><img class="session-brand" src="/logo.png" alt="VoaDesk"><div class="session-heading"><strong id="session-status" role="status" aria-live="polite">Aguardando autorização</strong><small id="permission-status">Nenhum acesso autorizado</small></div><button type="button" id="end-session" class="danger">Encerrar atendimento</button></div>
       <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-copy"><span class="eyebrow">ESTAMOS CONECTANDO VOCÊS</span><div class="waiting-symbol" aria-hidden="true"><img src="/symbol.png" alt=""></div><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="waiting-art" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></div>
       <div class="session-options" id="session-options" hidden>
-        <label>Imagem <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrada</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button><button id="session-diagnostic" class="text-button" type="button" aria-expanded="false">Diagnóstico</button>
+        <label>Monitor <select id="session-monitor" disabled><option>Aguardando monitores</option></select></label><label>Zoom <select id="session-zoom"><option value="fit">Ajustar à tela</option><option value="100">100%</option><option value="150">150%</option><option value="200">200%</option></select></label><button id="session-files" class="secondary" type="button" disabled>Arquivos ↔</button><button id="task-manager" class="secondary" type="button">Gerenciador de Tarefas</button><button id="secure-attention" class="secondary" type="button">CTRL+ALT+DEL</button><label>Imagem <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrada</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button><button id="session-diagnostic" class="text-button" type="button" aria-expanded="false">Diagnóstico</button>
       </div>
-      <div id="session-media" hidden>
+      <section id="files-panel" class="files-panel" aria-label="Transferência de arquivos" hidden><div class="files-heading"><strong>Arquivos do cliente</strong><button id="files-close" type="button" class="secondary">Fechar</button></div><p class="help">Copie arquivos nos dois sentidos. Sem limite fixo de tamanho; requer espaço livre e conexão ativa. Arquivos existentes são preservados. Envios vão para a pasta aberta ou Downloads/VoaDesk.</p><div class="files-actions"><button id="files-up" type="button" class="secondary">Pasta acima</button><input id="files-path" aria-label="Caminho da pasta no cliente" placeholder="Unidades do cliente"><button id="files-open" type="button" class="secondary">Abrir pasta</button><button id="files-upload" type="button" class="primary">Enviar arquivo</button><input id="files-input" type="file" hidden><button id="files-cancel" type="button" class="secondary" disabled>Cancelar transferência</button></div><p id="files-status" role="status" aria-live="polite"></p><ul id="files-list"></ul></section><div id="session-media" hidden>
         <p id="quality-notice" class="message" role="status">A imagem será ajustada conforme sua preferência.</p>
-        <video id="remote-video" autoplay playsinline muted tabindex="0" aria-label="Tela compartilhada pelo cliente"></video>
+        <div id="video-viewport"><video id="remote-video" autoplay playsinline muted tabindex="0" aria-label="Tela compartilhada pelo cliente"></video></div>
         <label class="sr-only" for="remote-keyboard">Entrada remota. Escape libera o foco.</label><textarea id="remote-keyboard" aria-label="Entrada remota ABNT2. Escape libera o foco." placeholder="Clique na tela para interagir · Escape libera o teclado" autocomplete="off" spellcheck="false"></textarea>
-        <p class="help remote-help">O acesso respeita a permissão do cliente. Escape libera o teclado.</p>
+        <p class="help remote-help">Escape libera o teclado. A troca de monitor pausa a entrada até a nova imagem chegar.</p>
         <div id="session-diagnostics" hidden></div>
       </div>
     </section>
