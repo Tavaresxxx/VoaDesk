@@ -2,7 +2,9 @@ import {peer,prefer,gather,position} from '/video/peer.mjs';
 import {StatsSampler} from '/video/stats.mjs';
 import {diagnose} from '/video/quality.mjs';
 import {attachFiles,closeFiles} from '/session-files.mjs';
-const $=id=>document.getElementById(id),post=async(action,payload={})=>{const r=await fetch('/api/session/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Farol-Request':'1'},body:JSON.stringify(payload),keepalive:action==='end'});const data=await r.json();if(!r.ok)throw new Error(data.message||'Sessão indisponível.');return data;};
+import {createLocalTest} from '/local-test.mjs';
+let localTest=null;
+const $=id=>document.getElementById(id),post=async(action,payload={})=>{if(localTest)return localTest.post(action,payload);const r=await fetch('/api/session/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Farol-Request':'1'},body:JSON.stringify(payload),keepalive:action==='end'});const data=await r.json();if(!r.ok)throw new Error(data.message||'Sessão indisponível.');return data;};
 let pc,channel,pointer,session,busy=false,ended=true,answering=false,guiding=false,sessionEpoch=0,last={},frames=0,frameAt=performance.now(),fps=null,sampler=new StatsSampler();
 let requesting=null,ending=null,needsEnd=false,cancelRequested=false;
 let monitorId=null,monitorGeneration=null,monitorSwitching=false,monitorEpoch=0;
@@ -31,18 +33,28 @@ function waiting(title,description,loading=true){
 function disposeMedia(){
   closeFiles();monitorEpoch++;monitorId=null;monitorGeneration=null;monitorSwitching=false;$('session-monitor').disabled=true;$('session-zoom').value='fit';zoom();
   ended=true;sessionEpoch++;answering=false;release();pc?.close();pc=null;channel=pointer=null;
+  localTest?.close();
   $('remote-video').srcObject?.getTracks().forEach(track=>track.stop());$('remote-video').srcObject=null;
   held.clear();guiding=false;$('guide-mode').setAttribute('aria-pressed','false');$('guide-mode').textContent='Orientar cliente';
 }
 async function closePanel(message,type=''){
+  const wasLocal=Boolean(localTest);localTest?.close();localTest=null;setTestControls(false);
   if(document.fullscreenElement)await document.exitFullscreen().catch(()=>{});
   panel(false);$('access-message').textContent=message;$('access-message').className='message '+type;
+  if(wasLocal)$('start-local-test').focus({preventScroll:true});
+}
+function setTestControls(active){
+  $('reset-local-test').hidden=$('local-test-notice').hidden=!active;
+  for(const id of ['session-monitor','session-profile','auto-quality'])$(id).closest('label').hidden=active;
+  for(const id of ['session-files','task-manager','secure-attention','guide-mode'])$(id).hidden=active;
+  $('remote-video').setAttribute('aria-label',active?'Tela de testes simulada nesta máquina':'Tela compartilhada pelo cliente');
 }
 const send=(data,fast=false)=>{if(monitorSwitching&&['move','down','up','wheel','text','keyDown','keyUp','guide'].includes(data.type))return;const c=fast?pointer:channel;if(c?.readyState!=='open')return;if(c.bufferedAmount>16384){if(!ended)void end();return;}c.send(JSON.stringify({...data,monitorId,monitorGeneration,permissionRevision:session?.permissionRevision}));};
 function quality(){send({type:'quality',preference:$('session-profile').value,automatic:$('auto-quality').checked});}
 function release(){send({type:'release'});}
 async function end(notify=true,message='Atendimento encerrado. Você pode iniciar uma nova conexão.'){
   if(ending)return ending;
+  if(localTest)message='Teste local encerrado. As atividades foram descartadas.';
   cancelRequested=true;disposeMedia();$('end-session').disabled=true;
   waiting('Encerrando atendimento','Aguarde a confirmação do encerramento.');
   ending=(async()=>{
@@ -57,20 +69,23 @@ async function end(notify=true,message='Atendimento encerrado. Você pode inicia
     }finally{$('end-session').disabled=false;$('end-session').textContent=needsEnd?'Tentar encerrar':'Encerrar atendimento';ending=null;}
   })();return ending;
 }
-export async function requestSession(code){
-  if(requesting||ending||needsEnd)return;
+export const requestLocalTest=()=>requestSession(null,true);
+export async function requestSession(code,test=false){
+  if(requesting||ending||needsEnd||!ended)return;
   cancelRequested=false;session=null;sessionEpoch++;last={};sampler=new StatsSampler();fps=null;
-  $('end-session').textContent='Cancelar solicitação';$('permission-status').textContent='Nenhum acesso autorizado';
-  waiting('Verificando código','Localizando o cliente e enviando a solicitação de acesso.');panel(true);fullscreen();
-  requesting=post('request',{code}).then(next=>{session=next;needsEnd=true;});
+  setTestControls(test);
+  $('end-session').textContent=test?'Cancelar teste':'Cancelar solicitação';$('permission-status').textContent=test?'Somente a tela simulada nesta máquina':'Nenhum acesso autorizado';
+  waiting(test?'Preparando sua tela de testes':'Verificando código',test?'Criando uma conexão de vídeo local e uma área interativa descartável.':'Localizando o cliente e enviando a solicitação de acesso.');panel(true);if(!test)fullscreen();
+  requesting=(async()=>{if(test){localTest=createLocalTest();session=await localTest.start();}else session=await post('request',{code});needsEnd=true;})();
   try{
     await requesting;if(cancelRequested)return;
-    ended=false;waiting('Aguardando o cliente aceitar','Peça ao cliente para permitir a conexão no aplicativo VoaDesk.');
-    $('permission-status').textContent='Aguardando o cliente aceitar controle, monitores e arquivos.';
-  }catch(e){if(!cancelRequested)await closePanel(e.message,'error');}
+    ended=false;waiting(test?'Conectando nesta máquina':'Aguardando o cliente aceitar',test?'Preparando o vídeo da tela simulada.':'Peça ao cliente para permitir a conexão no aplicativo VoaDesk.');
+    $('permission-status').textContent=test?'Somente a tela simulada nesta máquina':'Aguardando o cliente aceitar controle, monitores e arquivos.';
+  }catch(e){if(!cancelRequested){disposeMedia();await closePanel(e.message,'error');}}
   finally{requesting=null;}
 }
 $('end-session').onclick=()=>void end();$('session-profile').onchange=quality;$('auto-quality').onchange=quality;
+$('reset-local-test').onclick=()=>{release();held.clear();send({type:'testReset'});};
 $('session-diagnostic').onclick=()=>{const expanded=$('session-diagnostics').hidden;$('session-diagnostics').hidden=!expanded;$('session-diagnostic').setAttribute('aria-expanded',String(expanded));if(expanded)$('check-connection').focus({preventScroll:true});};
 $('guide-mode').onclick=()=>{release();guiding=!guiding;$('guide-mode').setAttribute('aria-pressed',String(guiding));$('guide-mode').textContent=guiding?'Orientação ativa':'Orientar cliente';};
 $('full-session').onclick=()=>{if(document.fullscreenElement)void document.exitFullscreen();else void $('session-panel').requestFullscreen();};
@@ -119,12 +134,12 @@ setInterval(async()=>{
   if(ended||busy)return;busy=true;const epoch=sessionEpoch;
   try{
     const next=await post('state');if(ended||epoch!==sessionEpoch)return;session=next;if(session.state==='ended'){await end(false,session.reason==='denied'?'Cliente recusou o atendimento.':session.reason==='connection-lost'?'A solicitação expirou ou a conexão foi interrompida. Tente novamente.':'Atendimento encerrado pelo cliente.');return;}
-    $('permission-status').textContent=session.permission==='control'?'Controle autorizado pelo cliente':session.permission==='view'?'Somente visualização':'Aguardando autorização';
-    if(['approved','active'].includes(session.state)&&!$('session-waiting').hidden)waiting('Conectando ao cliente','Autorização recebida. Preparando a captura dos monitores do cliente.');
+    $('permission-status').textContent=localTest?'Teste local · comandos apenas na tela simulada':session.permission==='control'?'Controle autorizado pelo cliente':session.permission==='view'?'Somente visualização':'Aguardando autorização';
+    if(['approved','active'].includes(session.state)&&!$('session-waiting').hidden)waiting(localTest?'Conectando nesta máquina':'Conectando ao cliente',localTest?'Preparando o vídeo da tela simulada.':'Autorização recebida. Preparando a captura dos monitores do cliente.');
     if(session.offer&&!pc&&!answering){answering=true;const connecting=peer();pc=connecting;const current=()=>!ended&&epoch===sessionEpoch&&pc===connecting;
       connecting.ontrack=e=>{if(!current()){e.track.stop();return;}$('remote-video').srcObject=new MediaStream([e.track]);void $('remote-video').play().catch(()=>{});};
       connecting.ondatachannel=e=>{if(!current()){e.channel.close();return;}if(e.channel.label==='control'){channel=e.channel;channel.onopen=quality;channel.onmessage=event=>{if(!current())return;const d=JSON.parse(event.data);if(d.type==='qualityNotice')$('quality-notice').textContent=d.text;if(d.type==='monitors')setMonitors(d);};}else if(e.channel.label==='files')attachFiles(e.channel);else if(e.channel.label==='pointer')pointer=e.channel;else e.channel.close();};
-      connecting.onconnectionstatechange=()=>{if(!current())return;if(connecting.connectionState==='connected'){tell('Atendimento ativo');$('session-waiting').hidden=true;$('session-media').hidden=false;$('session-options').hidden=false;$('end-session').textContent='Encerrar atendimento';}if(['failed','disconnected'].includes(connecting.connectionState))void end();};
+      connecting.onconnectionstatechange=()=>{if(!current())return;if(connecting.connectionState==='connected'){tell(localTest?'Conectado à tela de testes':'Atendimento ativo');$('session-waiting').hidden=true;$('session-media').hidden=false;$('session-options').hidden=false;$('end-session').textContent=localTest?'Sair do teste':'Encerrar atendimento';if(localTest)$('quality-notice').textContent='Clique na imagem para interagir. Suas atividades serão descartadas ao sair.';}if(['failed','disconnected'].includes(connecting.connectionState))void end();};
       await connecting.setRemoteDescription(session.offer);if(!current()){connecting.close();return;}prefer(connecting.getTransceivers()[0],false);await connecting.setLocalDescription(await connecting.createAnswer());await gather(connecting);if(!current()){connecting.close();return;}await post('signal',connecting.localDescription);if(current())answering=false;
     }
     if(pc?.connectionState==='connected'){const active=pc,report=await active.getStats();if(ended||epoch!==sessionEpoch||pc!==active)return;last={...(session.stats??{}),...sampler.sample(report,{fps,total:frames})};for(const k of ['encodedFps','capturedFps','encodeMs','encoder','powerEfficientEncoder','qualityLimitation'])if(session.stats?.[k]!=null)last[k]=session.stats[k];send({type:'feedback',stats:{rttMs:last.rttMs,jitterMs:last.jitterMs,lossPercent:last.lossPercent,decodeMs:last.decodeMs}});showDiagnostics();}

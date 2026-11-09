@@ -40,11 +40,16 @@ VoaDesk Tecnico $version - previa de teste em rede local
 3. A credencial do tecnico e lida da configuracao privada ja existente nesta conta Windows.
    A distribuicao nao contem credenciais. Em outro computador de tecnico e necessario provisionamento autorizado.
 4. Entregue VoaDeskCliente.exe ao computador atendido. Ambos precisam de internet e da mesma rede local.
-5. Informe o codigo do cliente e clique em Solicitar acesso. A tela de espera abre e solicita o consentimento no cliente.
+5. Busque um cliente salvo pelo nome ou codigo, ou cole o codigo completo. Selecione o cliente e clique em Solicitar acesso.
+   A busca aceita nomes sem acentos e codigos agrupados. Setas e Enter selecionam; Escape fecha. Buscar nao inicia atendimento.
+   Buscar em restringe a nome ou codigo; Ver todos os resultados abre a lista completa sem perder a consulta.
+   A tela de espera abre apos Solicitar acesso e solicita o consentimento no cliente.
    O cliente compacto expande para Aceitar conexao ou recusar. Aceitar autoriza controle, monitores e arquivos.
 6. Use a barra do tecnico para trocar de monitor, ajustar zoom e copiar arquivos. Encerre e confirme a parada nas duas pontas.
 7. Para receber ajuda neste computador, use Abrir meu codigo na tela inicial. O cliente mostra o codigo real do dispositivo.
 8. AbrirTecnicoLocal.bat inicia sinalizacao somente em loopback para teste nesta maquina. Nenhuma credencial e exigida nesse modo.
+   Em Inicio, clique em Testar nesta maquina para abrir a tela simulada: digite, clique, arraste e desenhe. Reiniciar teste limpa as atividades.
+   O teste usa video e comandos locais, sem capturar ou controlar o Windows. Sair do teste descarta as atividades.
 9. Fechar a janela encerra a sessao e o servidor local pertencente ao aplicativo. Outros processos nao sao encerrados.
 
 Servidor: $PairingUrl

@@ -19,7 +19,9 @@
     "test:client": "node tools/client-smoke.mjs",
     "test:native-session": "node tools/native-session-smoke.mjs",
     "test:update-ui": "node tools/update-ui-smoke.mjs",
-    "test:design": "node tools/redesign-smoke.mjs"
+    "test:design": "node tools/redesign-smoke.mjs",
+    "test:local-screen": "node tools/local-test-smoke.mjs",
+    "test:search": "node tools/search-smoke.mjs"
   },
   "engines": {
     "node": ">=22"

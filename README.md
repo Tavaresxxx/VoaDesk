@@ -1,4 +1,4 @@
-﻿# VoaDesk 0.6 — suporte remoto para Windows
+# VoaDesk 0.6 — suporte remoto para Windows
 
 O VoaDesk tem dois aplicativos: **Técnico**, para solicitar e conduzir atendimentos, e **Cliente**, para mostrar o código, receber a solicitação, autorizar e encerrar o acesso. O código identifica o dispositivo; cada atendimento depende de consentimento explícito.
 
@@ -27,6 +27,22 @@ O pacote distribuído usa a configuração existente do servidor HTTPS, atualmen
 6. Encerrar em qualquer ponta revoga o atendimento e libera entradas mantidas. Fechar a janela do técnico cancela transferências e encerra seu servidor auxiliar. Uma interrupção exige nova autorização.
 
 A janela é redimensionável, com minimizar, maximizar e fechar. Tela cheia acompanha o estado do vídeo no WebView2; Escape libera o teclado remoto. Uma segunda abertura revela a instância existente. Atalhos reservados pelo Windows não são interceptados: **CTRL+ALT+DEL, UAC, aplicativos elevados e área segura continuam limitados**. O botão CTRL+ALT+DEL explica a indisponibilidade; Gerenciador de Tarefas é uma ação separada.
+
+## Buscar clientes
+
+Em Início, use **Nome ou código de acesso** para encontrar um cliente salvo. A busca aceita partes do nome ou código, nomes sem acentos e códigos com espaços ou hífens. Use o mouse ou as setas e Enter para selecionar uma sugestão; em seguida clique em **Solicitar acesso**. Escape fecha as sugestões, e o botão × limpa a busca. O filtro de **Clientes salvos** usa a mesma correspondência.
+
+A busca acontece na agenda já carregada, sem consultar computadores ou enviar solicitações. A autorização de atendimento continua obrigatória. Consulte [a investigação do AnyDesk, evidências e decisões da adaptação](docs/anydesk-search.md). Validação local: `npm run test:search`.
+
+Use **Buscar em** para restringir a nome ou código. As sugestões indicam o campo encontrado; **Ver todos os resultados** abre a lista completa com a consulta e o filtro preservados. Internamente, o índice normalizado é preparado quando a agenda muda e reutilizado durante a digitação. A [comparação interna de TeamViewer, AnyDesk e RemotePC](docs/search-internals-comparison.md) registra os artefatos, métodos recuperados e limites da investigação.
+
+## Testar sozinho nesta máquina
+
+No aplicativo Técnico, selecione **Testar nesta máquina** em Início. A conexão abre uma tela simulada com bloco de notas, janela que pode ser arrastada, contador de cliques e área de desenho. Clique no bloco para digitar, teste a roda do mouse e use **Reiniciar teste** para começar de novo. **Sair do teste** fecha os dois pares WebRTC e descarta as atividades.
+
+O vídeo da tela simulada e os comandos de mouse/teclado passam por WebRTC dentro da mesma janela. Esse modo funciona sem servidor de sinalização, código, identidade de cliente ou aplicativo Cliente. Não captura nem controla o Windows e não altera agenda, histórico ou arquivos. Não valida captura nativa, controle do sistema operacional ou acesso entre computadores. Alterações no conteúdo são mantidas somente em memória durante o teste.
+
+Validação local: `npm run test:local-screen` verifica vídeo decodificado, comandos, reinício, encerramento, reconexão e ausência de chamadas de sessão ao servidor, usando serviços e dados temporários.
 
 ## Dados e segurança
 

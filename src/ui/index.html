@@ -22,10 +22,17 @@
       <section class="welcome"><div><span class="eyebrow">BEM-VINDO AO VOADESK</span><h1>Uma conexão.<br>Muitas soluções.</h1><p>Receba ajuda ou dê o próximo passo com alguém.</p></div><div class="brand-space" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></section>
       <div class="intentions">
         <section class="access-section" id="access" aria-labelledby="access-heading">
-          <span class="step-label">01 / ACESSAR</span><h2 id="access-heading">Acessar outro dispositivo</h2><p class="section-description">Digite o código que aparece no VoaDesk do cliente.</p>
+          <span class="step-label">01 / ACESSAR</span><h2 id="access-heading">Acessar outro dispositivo</h2><p class="section-description">Busque um cliente salvo pelo nome ou digite seu código de acesso.</p>
           <form id="access-form">
-            <label for="access-code">Código de acesso</label>
-            <input id="access-code" placeholder="XXXX XXXX XXXX XXXX" maxlength="19" autocomplete="off" spellcheck="false" autocapitalize="characters" required aria-describedby="access-message">
+            <label for="access-code">Nome ou código de acesso</label>
+            <label class="search-field-label" for="access-search-field">Buscar em <select id="access-search-field"><option value="all">Nome e código</option><option value="name">Somente nome</option><option value="code">Somente código</option></select></label>
+            <div class="access-search">
+              <input id="access-code" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="access-results" placeholder="Buscar cliente ou colar código" maxlength="96" autocomplete="off" spellcheck="false" autocapitalize="none" required aria-describedby="access-search-help access-search-status access-message">
+              <button type="button" id="clear-access-search" class="clear-search" aria-label="Limpar busca" hidden>×</button>
+              <div id="access-search-panel" class="access-search-panel" hidden><span class="search-group">CLIENTES SALVOS</span><ul id="access-results" role="listbox" aria-label="Clientes encontrados"></ul><p id="access-search-empty" class="search-empty" hidden>Nenhum cliente salvo encontrado neste filtro. Você também pode colar um código completo.</p><button id="show-all-search" class="text-button show-all-search" type="button" hidden>Ver todos os resultados</button></div>
+            </div>
+            <p id="access-search-help" class="search-help">Busque por nome ou parte do código. Use ↑ ↓ e Enter para selecionar.</p>
+            <p id="access-search-status" class="sr-only" role="status" aria-live="polite"></p>
             <button class="primary access-action" id="verify-code" disabled><span>Solicitar acesso</span><span aria-hidden="true">↗</span></button>
             <p id="access-message" class="message" role="status" aria-live="polite">Conferindo serviço…</p>
           </form>
@@ -39,11 +46,16 @@
           <a class="text-link download-client" href="/downloads/VoaDeskCliente.exe" download>Baixar aplicativo do cliente</a>
         </section>
       </div>
+      <section class="local-test-card" aria-labelledby="local-test-heading">
+        <div><span class="eyebrow">EXPERIMENTE O VOADESK</span><h2 id="local-test-heading">Sua primeira conexão começa aqui.</h2><p>Conecte a uma tela de testes nesta máquina. Digite, clique, mova uma janela e desenhe, sem precisar de outro computador.</p><small>Ambiente simulado e descartável. Não controla a área de trabalho do Windows.</small></div>
+        <button type="button" id="start-local-test" class="secondary">Testar nesta máquina <span aria-hidden="true">↗</span></button>
+        <p id="local-test-message" class="message" role="status" hidden></p>
+      </section>
       <div class="home-footnote"><span class="small-mark" aria-hidden="true"></span><p>Pronto para ajudar, sempre com permissão.</p><button type="button" class="text-button" data-page="help">Como funciona</button></div>
     </div>
     <section id="clients-page" class="page" hidden aria-labelledby="saved-heading">
       <div class="page-heading"><div><span class="eyebrow">ACESSO RÁPIDO</span><h1 id="saved-heading">Clientes salvos</h1><p>Encontre um cliente e solicite acesso quando precisar.</p></div><button id="add-client" class="primary" type="button"><span aria-hidden="true">+</span> Adicionar cliente</button></div>
-      <label class="search-label" for="client-search">Buscar cliente</label><input id="client-search" class="search-input" type="search" placeholder="Buscar por nome" autocomplete="off">
+      <label class="search-label" for="client-search">Buscar cliente</label><label class="search-field-label" for="client-search-field">Buscar em <select id="client-search-field"><option value="all">Nome e código</option><option value="name">Somente nome</option><option value="code">Somente código</option></select></label><input id="client-search" class="search-input" type="search" placeholder="Buscar por nome ou código" maxlength="96" autocomplete="off"><p id="client-search-status" class="search-help" role="status" aria-live="polite"></p>
       <p id="saved-status" class="empty-state" role="status">Carregando clientes…</p><ul id="saved-clients" class="saved-list"></ul>
       <p class="help">Salvar um cliente facilita o próximo contato. A autorização continua sendo necessária a cada atendimento.</p>
     </section>
@@ -52,6 +64,8 @@
       <div class="help-layout"><div class="help-articles">
         <details open><summary>Como receber ajuda?</summary><p>Em Início, selecione Abrir meu código. Envie o código exibido para a pessoa que vai ajudar. Quando a solicitação chegar, clique em Aceitar conexão para autorizar controle, acesso aos monitores e transferência de arquivos.</p></details>
         <details><summary>Como acessar um dispositivo?</summary><p>Peça para o cliente abrir o VoaDesk, digite o código e selecione Solicitar acesso. Aguarde a autorização. Depois, use a barra do atendimento para trocar de monitor.</p></details>
+        <details><summary>Como buscar um cliente?</summary><p>Na tela inicial, digite o nome ou parte do código de um cliente salvo. A busca aceita nomes com ou sem acentos e códigos com espaços ou hífens. Use Buscar em para filtrar por nome ou código; cada sugestão mostra como foi encontrada. Se houver mais de seis resultados, Ver todos abre a lista completa e mantém a consulta e o filtro. Selecione com o mouse ou com as setas e Enter; depois escolha Solicitar acesso. Buscar não envia solicitações nem consulta outros computadores.</p></details>
+        <details><summary>Como testar sozinho nesta máquina?</summary><p>Em Início, selecione Testar nesta máquina. Uma tela simulada permite digitar no bloco de notas, arrastar sua janela, clicar no contador, desenhar e rolar o conteúdo. Vídeo e comandos passam por WebRTC local. Reiniciar teste apaga as atividades; Sair do teste encerra a conexão. Esse modo não captura o Windows e não valida acesso entre computadores.</p></details>
         <details><summary>Como interromper um atendimento?</summary><p>Selecione Encerrar atendimento em qualquer uma das pontas. Para liberar o teclado remoto sem encerrar, pressione Escape.</p></details>
         <details><summary>O que esta versão precisa?</summary><p>Esta prévia atende computadores Windows na mesma rede local, com internet para sinalização. Os monitores do cliente precisam operar em SDR. Aplicativos elevados e conexões entre redes diferentes não têm suporte validado.</p></details>
       </div><div>
@@ -62,8 +76,10 @@
       <div class="session-toolbar"><img class="session-brand" src="/logo.png" alt="VoaDesk"><div class="session-heading"><strong id="session-status" role="status" aria-live="polite">Aguardando autorização</strong><small id="permission-status">Nenhum acesso autorizado</small></div><button type="button" id="end-session" class="danger">Encerrar atendimento</button></div>
       <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-copy"><span class="eyebrow">ESTAMOS CONECTANDO VOCÊS</span><div class="waiting-symbol" aria-hidden="true"><img src="/symbol.png" alt=""></div><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="waiting-art" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></div>
       <div class="session-options" id="session-options" hidden>
+        <button id="reset-local-test" class="secondary" type="button" hidden>Reiniciar teste</button>
         <label>Monitor <select id="session-monitor" disabled><option>Aguardando monitores</option></select></label><label>Zoom <select id="session-zoom"><option value="fit">Ajustar à tela</option><option value="100">100%</option><option value="150">150%</option><option value="200">200%</option></select></label><button id="session-files" class="secondary" type="button" disabled>Arquivos ↔</button><button id="task-manager" class="secondary" type="button">Gerenciador de Tarefas</button><button id="secure-attention" class="secondary" type="button">CTRL+ALT+DEL</button><label>Imagem <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrada</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button><button id="session-diagnostic" class="text-button" type="button" aria-expanded="false">Diagnóstico</button>
       </div>
+      <p id="local-test-notice" class="local-test-notice" hidden>TELA SIMULADA · Vídeo e comandos nesta máquina. Clique no bloco de notas para digitar, arraste a barra da janela e desenhe à direita. Escape libera o teclado.</p>
       <section id="files-panel" class="files-panel" aria-label="Transferência de arquivos" hidden><div class="files-heading"><strong>Arquivos do cliente</strong><button id="files-close" type="button" class="secondary">Fechar</button></div><p class="help">Copie arquivos nos dois sentidos. Sem limite fixo de tamanho; requer espaço livre e conexão ativa. Arquivos existentes são preservados. Envios vão para a pasta aberta ou Downloads/VoaDesk.</p><div class="files-actions"><button id="files-up" type="button" class="secondary">Pasta acima</button><input id="files-path" aria-label="Caminho da pasta no cliente" placeholder="Unidades do cliente"><button id="files-open" type="button" class="secondary">Abrir pasta</button><button id="files-upload" type="button" class="primary">Enviar arquivo</button><input id="files-input" type="file" hidden><button id="files-cancel" type="button" class="secondary" disabled>Cancelar transferência</button></div><p id="files-status" role="status" aria-live="polite"></p><ul id="files-list"></ul></section><div id="session-media" hidden>
         <p id="quality-notice" class="message" role="status">A imagem será ajustada conforme sua preferência.</p>
         <div id="video-viewport"><video id="remote-video" autoplay playsinline muted tabindex="0" aria-label="Tela compartilhada pelo cliente"></video></div>
