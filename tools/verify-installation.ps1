@@ -31,7 +31,7 @@ $stream = $assembly.GetManifestResourceStream('VoaDesk.Server')
 $reader = New-Object IO.StreamReader($stream)
 $endpoint = $reader.ReadToEnd().Trim(); $reader.Dispose()
 if ($endpoint -ne 'https://voadesk.onrender.com') { throw 'Endpoint incorreto no cliente.' }
-$captureNames = @('capture.html','capture.mjs','shared.mjs','quality.mjs','stats.mjs','profiles.mjs','files.mjs','theme.css','capture.css')
+$captureNames = @('capture.html','capture.mjs','shared.mjs','quality.mjs','stats.mjs','profiles.mjs','input-queue.mjs','files.mjs','theme.css','capture.css')
 foreach ($name in $captureNames) {
   if ($assembly.GetManifestResourceNames() -notcontains ('VoaDesk.Capture.'+$name)) { throw ('Captura ausente no EXE: '+$name) }
 }

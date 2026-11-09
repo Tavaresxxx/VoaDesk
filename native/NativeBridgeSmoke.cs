@@ -32,7 +32,7 @@ public static class NativeBridgeSmoke {
        step="delayed-revocation";await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/arm"));
        deadline.Restart();while(await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/held"))!="true"&&deadline.Elapsed.TotalSeconds<3)await Task.Delay(20);
        if(deadline.Elapsed.TotalSeconds>=3)throw new Exception("Delayed response was not held.");
-       form.Controls.OfType<Button>().First(b=>b.Text=="Encerrar / recusar atendimento").PerformClick();
+       form.Controls.OfType<Button>().First(b=>b.Text=="Encerrar atendimento").PerformClick();
        await Task.Delay(150);int afterRevoke=sent.Count;
        await capture.GetStringAsync(new Uri(new Uri(args[0]),"__test/release"));await Task.Delay(350);
        if(sent.Count!=afterRevoke||sent.Any(i=>i.type==1&&i.data.key.scan==44&&(i.data.key.flags&2)==0))throw new Exception("Stale response restored input after revocation.");
@@ -42,7 +42,7 @@ public static class NativeBridgeSmoke {
       if(!sent.Any(i=>i.type==0&&i.data.mouse.flags==4)||!sent.Any(i=>i.type==1&&(i.data.key.flags&2)!=0&&i.data.key.scan==29))throw new Exception("Release not observed.");result=0;
      }
     }
-   }catch(Exception e){Console.WriteLine("{\"error\":\""+e.GetType().Name+"\",\"step\":\""+step+"\",\"screens\":"+Screen.AllScreens.Length+",\"events\":"+sent.Count+"}");}
+   }catch(Exception e){Console.Error.WriteLine(e.ToString());Console.WriteLine("{\"error\":\""+e.GetType().Name+"\",\"step\":\""+step+"\",\"screens\":"+Screen.AllScreens.Length+",\"events\":"+sent.Count+"}");}
    form.Close();
   };
   timer.Start();Application.Run(form);timer.Dispose();if(result==0)Console.WriteLine("{\"result\":\"passed\",\"httpToNativeBridge\":true,\"unicodeDelivered\":true,\"heldKeyAndMouseReleasedOnEnd\":true,\"staleResponseIgnored\":"+(args.Length>2?"true":"false")+",\"osInputInjected\":false}");return result;

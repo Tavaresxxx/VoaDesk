@@ -3,7 +3,7 @@ import {StatsSampler} from '/video/stats.mjs';
 import {diagnose} from '/video/quality.mjs';
 import {attachFiles,closeFiles} from '/session-files.mjs';
 import {createLocalTest} from '/local-test.mjs';
-let localTest=null;
+let localTest=null,inputId=0;const inputTimes=new Map();let commandRttMs=null;
 const $=id=>document.getElementById(id),post=async(action,payload={})=>{if(localTest)return localTest.post(action,payload);const r=await fetch('/api/session/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Farol-Request':'1'},body:JSON.stringify(payload),keepalive:action==='end'});const data=await r.json();if(!r.ok)throw new Error(data.message||'Sessão indisponível.');return data;};
 let pc,channel,pointer,session,busy=false,ended=true,answering=false,guiding=false,sessionEpoch=0,last={},frames=0,frameAt=performance.now(),fps=null,sampler=new StatsSampler();
 let requesting=null,ending=null,needsEnd=false,cancelRequested=false;
@@ -32,7 +32,7 @@ function waiting(title,description,loading=true){
 }
 function disposeMedia(){
   closeFiles();monitorEpoch++;monitorId=null;monitorGeneration=null;monitorSwitching=false;$('session-monitor').disabled=true;$('session-zoom').value='fit';zoom();
-  ended=true;sessionEpoch++;answering=false;release();pc?.close();pc=null;channel=pointer=null;
+  ended=true;inputTimes.clear();commandRttMs=null;sessionEpoch++;answering=false;release();pc?.close();pc=null;channel=pointer=null;
   localTest?.close();
   $('remote-video').srcObject?.getTracks().forEach(track=>track.stop());$('remote-video').srcObject=null;
   held.clear();guiding=false;$('guide-mode').setAttribute('aria-pressed','false');$('guide-mode').textContent='Orientar cliente';
@@ -56,7 +56,8 @@ const send=(data,fast=false)=>{
   // A newer pointer position can replace a lost move. Clicks and keys use the reliable channel.
   if(fast&&c.bufferedAmount>512)return;
   if(c.bufferedAmount>16384){if(!ended)void end();return;}
-  c.send(JSON.stringify({...data,monitorId,monitorGeneration,permissionRevision:session?.permissionRevision}));
+  const id=++inputId;if(inputTimes.size>=256)inputTimes.delete(inputTimes.keys().next().value);inputTimes.set(id,performance.now());
+  c.send(JSON.stringify({...data,inputId:id,monitorId,monitorGeneration,permissionRevision:session?.permissionRevision}));
 };
 function quality(){send({type:'quality',preference:$('session-profile').value,automatic:$('auto-quality').checked});}
 function release(){send({type:'release'});}
@@ -127,8 +128,9 @@ window.addEventListener('pagehide',()=>{release();void end();});
 window.addEventListener('voadesk:closing',()=>{release();void end();});
 $('remote-video').requestVideoFrameCallback?.(function count(now,meta){frames=meta.presentedFrames;if(now-frameAt>1000){fps=(frames-(count.old??0))*1000/(now-frameAt);count.old=frames;frameAt=now;}$('remote-video').requestVideoFrameCallback(count);});
 function showDiagnostics(){
-  $('diagnostic-summary').textContent=diagnose(last,true).map(f=>f.text).join(' ');
-  const labels={width:'Largura',height:'Altura',capturedFps:'FPS da fonte',encodedFps:'FPS codificados',decodedFps:'FPS decodificados',presentedFps:'FPS apresentados',bitrateMbps:'Bitrate Mbps',rttMs:'RTT ms',jitterMs:'Jitter ms',lossPercent:'Perda %',encodeMs:'Codificação ms/quadro',decodeMs:'Decodificação ms/quadro',jitterBufferMs:'Espera no buffer ms',freezeCount:'Congelamentos acumulados',droppedFrames:'Quadros descartados',codec:'Codec',encoder:'Encoder',decoder:'Decoder',powerEfficientEncoder:'Encoder eficiente (não prova GPU)',powerEfficientDecoder:'Decoder eficiente (não prova GPU)',route:'Caminho',visualLatencyMs:'Latência visual completa'};
+  $('diagnostic-summary').textContent=diagnose(last,Boolean(localTest)).map(f=>f.text).join(' ');
+  last.commandRttMs=commandRttMs;
+  const labels={captureMs:'Captura nativa ms',jpegEncodeMs:'JPEG local ms',captureBridgeMs:'Captura + ponte + decode JPEG ms',canvasRenderMs:'Desenho no canvas ms',inputQueueMs:'Maior espera na fila de comandos ms',pointerReplaced:'Movimentos substitu\u00eddos',commandRttMs:'Comando: ida/volta pela ponte ms',width:'Largura',height:'Altura',capturedFps:'FPS da fonte',encodedFps:'FPS codificados',decodedFps:'FPS decodificados',presentedFps:'FPS apresentados',bitrateMbps:'Bitrate Mbps',rttMs:'RTT ms',jitterMs:'Jitter ms',lossPercent:'Perda %',encodeMs:'Codificação ms/quadro',decodeMs:'Decodificação ms/quadro',jitterBufferMs:'Espera no buffer ms',freezeCount:'Congelamentos acumulados',droppedFrames:'Quadros descartados',codec:'Codec',encoder:'Encoder',decoder:'Decoder',powerEfficientEncoder:'Encoder eficiente (não prova GPU)',powerEfficientDecoder:'Decoder eficiente (não prova GPU)',route:'Caminho',visualLatencyMs:'Latência visual completa'};
   $('diagnostic-details').replaceChildren(...Object.entries(labels).map(([key,label])=>{const wrap=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;const value=last[key];dd.textContent=value==null?'não disponível':typeof value==='number'?value.toFixed(2):String(value);wrap.append(dt,dd);return wrap;}));
 }
 $('check-connection').onclick=async()=>{
@@ -145,12 +147,12 @@ setInterval(async()=>{
     const next=await post('state');if(ended||epoch!==sessionEpoch)return;session=next;if(session.state==='ended'){await end(false,session.reason==='denied'?'Cliente recusou o atendimento.':session.reason==='connection-lost'?'A solicitação expirou ou a conexão foi interrompida. Tente novamente.':'Atendimento encerrado pelo cliente.');return;}
     $('permission-status').textContent=localTest?'Teste local · comandos apenas na tela simulada':session.permission==='control'?'Controle autorizado pelo cliente':session.permission==='view'?'Somente visualização':'Aguardando autorização';
     if(['approved','active'].includes(session.state)&&!$('session-waiting').hidden)waiting(localTest?'Conectando nesta máquina':'Conectando ao cliente',localTest?'Preparando o vídeo da tela simulada.':'Autorização recebida. Preparando a captura dos monitores do cliente.');
-    if(session.offer&&!pc&&!answering){answering=true;const connecting=peer();pc=connecting;const current=()=>!ended&&epoch===sessionEpoch&&pc===connecting;
+    if(session.offer&&!pc&&!answering){answering=true;const connecting=peer(session.rtc);pc=connecting;const current=()=>!ended&&epoch===sessionEpoch&&pc===connecting;
       connecting.ontrack=e=>{if(!current()){e.track.stop();return;}$('remote-video').srcObject=new MediaStream([e.track]);void $('remote-video').play().catch(()=>{});};
-      connecting.ondatachannel=e=>{if(!current()){e.channel.close();return;}if(e.channel.label==='control'){channel=e.channel;channel.onopen=quality;channel.onmessage=event=>{if(!current())return;const d=JSON.parse(event.data);if(d.type==='qualityNotice')$('quality-notice').textContent=d.text;if(d.type==='monitors')setMonitors(d);};}else if(e.channel.label==='files')attachFiles(e.channel);else if(e.channel.label==='pointer')pointer=e.channel;else e.channel.close();};
+      connecting.ondatachannel=e=>{if(!current()){e.channel.close();return;}if(e.channel.label==='control'){channel=e.channel;channel.onopen=quality;channel.onmessage=event=>{if(!current())return;let d;try{d=JSON.parse(event.data);}catch{return;}if(d.type==='inputAck'){const at=inputTimes.get(d.inputId);if(at!==undefined){commandRttMs=performance.now()-at;inputTimes.delete(d.inputId);}return;}if(d.type==='qualityNotice')$('quality-notice').textContent=d.text;if(d.type==='monitors')setMonitors(d);};}else if(e.channel.label==='files')attachFiles(e.channel);else if(e.channel.label==='pointer')pointer=e.channel;else e.channel.close();};
       connecting.onconnectionstatechange=()=>{if(!current())return;if(connecting.connectionState==='connected'){tell(localTest?'Conectado à tela de testes':'Atendimento ativo');$('session-waiting').hidden=true;$('session-media').hidden=false;$('session-options').hidden=false;$('end-session').textContent=localTest?'Sair do teste':'Encerrar atendimento';if(localTest)$('quality-notice').textContent='Clique na imagem para interagir. Suas atividades serão descartadas ao sair.';}if(['failed','disconnected'].includes(connecting.connectionState))void end();};
       await connecting.setRemoteDescription(session.offer);if(!current()){connecting.close();return;}prefer(connecting.getTransceivers()[0],false);await connecting.setLocalDescription(await connecting.createAnswer());await gather(connecting);if(!current()){connecting.close();return;}await post('signal',connecting.localDescription);if(current())answering=false;
     }
-    if(pc?.connectionState==='connected'){const active=pc,report=await active.getStats();if(ended||epoch!==sessionEpoch||pc!==active)return;last={...(session.stats??{}),...sampler.sample(report,{fps,total:frames})};for(const k of ['encodedFps','capturedFps','encodeMs','encoder','powerEfficientEncoder','qualityLimitation'])if(session.stats?.[k]!=null)last[k]=session.stats[k];send({type:'feedback',stats:{rttMs:last.rttMs,jitterMs:last.jitterMs,lossPercent:last.lossPercent,decodeMs:last.decodeMs}});showDiagnostics();}
+    if(pc?.connectionState==='connected'){const active=pc,report=await active.getStats();if(ended||epoch!==sessionEpoch||pc!==active)return;last={...(session.stats??{}),...sampler.sample(report,{fps,total:frames})};for(const k of ['captureMs','jpegEncodeMs','captureBridgeMs','canvasRenderMs','inputQueueMs','pointerReplaced','encodedFps','capturedFps','encodeMs','encoder','powerEfficientEncoder','qualityLimitation'])if(session.stats?.[k]!=null)last[k]=session.stats[k];send({type:'feedback',stats:{rttMs:last.rttMs,jitterMs:last.jitterMs,lossPercent:last.lossPercent,decodeMs:last.decodeMs}});showDiagnostics();}
   }catch{if(epoch===sessionEpoch&&!ended)await end(true,'Conexão interrompida. Atendimento encerrado.');}finally{busy=false;}
 },1000);

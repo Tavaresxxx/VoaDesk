@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
+const [beforePath,afterPath]=process.argv.slice(2);
+assert.ok(beforePath&&afterPath,'Informe os relatórios de antes e depois.');
+const [before,after]=await Promise.all([beforePath,afterPath].map(async path=>JSON.parse(await readFile(path,'utf8'))));
+assert.equal(before.result,'passed');assert.equal(after.result,'passed');
+const comparison={scope:'short-synthetic-local-samples-not-cross-computer-benchmark',before:{date:before.date,runtime:before.runtime,fps:before.presentedFpsSynthetic,frameFetchMs:before.frameFetchMs},after:{date:after.date,runtime:after.runtime,fps:after.presentedFpsSynthetic,frameFetchMs:after.frameFetchMs},soakSeconds:after.soak?.seconds??null,limitations:['Amostras de dois segundos de FPS e últimas 30 buscas HTTP, sem isolamento de carga.','Não comprova latência visual, GPU, captura real ou redes externas.','Não mede estabilidade de oito horas.']};
+assert.ok([comparison.before.fps,comparison.after.fps,comparison.before.frameFetchMs,comparison.after.frameFetchMs].every(n=>Number.isFinite(n)&&n>0));
+comparison.fpsChangePercent=(comparison.after.fps/comparison.before.fps-1)*100;
+comparison.frameFetchChangePercent=(comparison.after.frameFetchMs/comparison.before.frameFetchMs-1)*100;
+await mkdir('artifacts/performance',{recursive:true});await writeFile('artifacts/performance/comparison.json',JSON.stringify(comparison,null,2));console.log(JSON.stringify(comparison,null,2));

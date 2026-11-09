@@ -3,6 +3,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { PairingRegistry } from './registry.mjs';
+import { iceConfiguration } from './ice-config.mjs';
 import { SessionHub } from './sessions.mjs';
 import { sessionRouter } from './session-http.mjs';
 import { fileURLToPath } from 'node:url';
@@ -14,18 +15,18 @@ import { DeviceRegistry } from './devices.mjs';
 import { DerivedDeviceRegistry } from './derived-devices.mjs';
 import { probePairingService } from './probe.mjs';
 const equal = (a, b) => typeof a === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
-export async function createPairingService({ port = 0, host = '127.0.0.1', operatorToken = randomBytes(32).toString('base64url'), registry = new PairingRegistry(), trustProxy = false, devices = null, operatorName = 'Operador local', updateDirectory = null, publicOrigin = null } = {}) {
+export async function createPairingService({ port = 0, host = '127.0.0.1', operatorToken = randomBytes(32).toString('base64url'), registry = new PairingRegistry(), trustProxy = false, devices = null, operatorName = 'Operador local', updateDirectory = null, publicOrigin = null, rtcConfiguration = iceConfiguration() } = {}) {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(operatorToken)) throw new Error('VOADESK_OPERATOR_TOKEN deve ter de 32 a 128 caracteres seguros.');
   if(publicOrigin){const u=new URL(publicOrigin);if(u.protocol!=='https:'||u.origin!==publicOrigin||u.username||u.password)throw new Error('PUBLIC_ORIGIN_INVALID');}
   const sessionsEnabled=Boolean(devices)&&(host==='127.0.0.1'||Boolean(publicOrigin));
   const reply = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'", 'Referrer-Policy': 'no-referrer' }); res.end(JSON.stringify(value)); };
-  const sessions = new SessionHub(devices, { operatorName });
+  const sessions = new SessionHub(devices, { operatorName, rtcConfiguration });
   const routeSession = sessionRouter(sessions, { root: resolve(dirname(fileURLToPath(import.meta.url)), '../..'), isOperator: token => equal(token, operatorToken), enabled: sessionsEnabled, allow: key => registry.allow(key, 1200, 10000) });
   const server = http.createServer(async (req, res) => {
     try {
       const path = req.url.split('?')[0];
       if(host === '127.0.0.1' && req.headers.host !== sessions.host && req.headers.host !== '127.0.0.1:'+server.address().port) return reply(res,403,{error:'HOST_DENIED'});
-      if (path === '/health' && req.method === 'GET') return reply(res, 200, { service: 'voadesk-pairing', version: '0.6.0', scope: sessionsEnabled?'authorized-lan-session-preview':'pairing-only', ready: true, sessionsEnabled, deviceStorage:devices?.storage??(devices?'file':'none'), serverHistoryPersistent:Boolean(devices?.file), release:process.env.RENDER_GIT_COMMIT??null });
+      if (path === '/health' && req.method === 'GET') return reply(res, 200, { service: 'voadesk-pairing', version: '0.7.0', scope: sessionsEnabled?'authorized-lan-session-preview':'pairing-only', ready: true, sessionsEnabled, deviceStorage:devices?.storage??(devices?'file':'none'), serverHistoryPersistent:Boolean(devices?.file), release:process.env.RENDER_GIT_COMMIT??null });
       const nativeBearer = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
       if (path === '/v3/operator/request') {
         if (!equal(nativeBearer,operatorToken)) return reply(res,403,{message:'Operador não autorizado.'});

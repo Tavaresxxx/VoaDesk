@@ -1,4 +1,4 @@
-# VoaDesk 0.6 — suporte remoto para Windows
+# VoaDesk 0.7 — suporte remoto para Windows
 
 O VoaDesk tem dois aplicativos: **Técnico**, para solicitar e conduzir atendimentos, e **Cliente**, para mostrar o código, receber a solicitação, autorizar e encerrar o acesso. O código identifica o dispositivo; cada atendimento depende de consentimento explícito.
 
@@ -65,7 +65,7 @@ Arquivos usam um DataChannel confiável separado, em blocos confirmados de 16 Ki
 - `src/video/`: H.264/WebRTC, qualidade, estatísticas e protocolo de arquivos. A captura nova está incorporada ao EXE do cliente.
 - `src/pairing/`: códigos, presença e autorização. Os assets públicos legados continuam disponíveis para clientes anteriores à ponte nativa.
 
-A captura nativa usa GDI/JPEG em loopback e canvas/WebRTC H.264, com alvo de até 30 capturas/s em SDR. A taxa efetiva depende do tempo de captura e do ajuste de qualidade. Para testar a fluidez, selecione **Imagem → Fluidez** com **Ajustar automaticamente** e veja os FPS, o RTT e a espera no buffer em **Diagnóstico → Detalhes técnicos**. O teste entre computadores exige a mesma LAN e acesso ao servidor de sinalização. O projeto ainda não configura TURN/STUN.
+A captura nativa usa GDI/JPEG em loopback e canvas/WebRTC H.264, com alvo de até 60 capturas/s em SDR. A taxa efetiva depende do tempo de captura e do ajuste de qualidade. Para testar a fluidez, selecione **Imagem → Fluidez** com **Ajustar automaticamente** e veja os FPS, o RTT e a espera no buffer em **Diagnóstico → Detalhes técnicos**. STUN/TURN é configurável no servidor para clientes novos; sem essa configuração, o teste entre computadores exige a mesma LAN. Nenhum relay externo foi provisionado.
 
 No Render sem disco, presença e sessões são efêmeras; os códigos são derivados da identidade privada e da chave existente do servidor. Reinícios encerram sessões. Isso não equivale a banco persistente ou histórico no servidor. WebRTC usa DTLS-SRTP/SCTP; não anunciar autenticação pessoal externa ou E2EE verificada independentemente do servidor.
 
@@ -104,3 +104,7 @@ Código próprio: MIT. Node.js acompanha sua licença e avisos. O SDK WebView2 a
 A interface foi revisada com fundo branco, navegação compacta, início separado entre iniciar e receber atendimento, histórico local e ferramentas de sessão agrupadas. A tela cheia é uma ação explícita. O cliente nativo oferece Copiar código e Reconectar visíveis, com estados de consentimento e encerramento.
 
 Consulte [mapa dos controles, validações e limites](docs/interface-windows.md). Os testes de escala WebView2 e de layout WinForms não equivalem à troca do DPI do Windows em monitores reais.
+
+## Desempenho 0.7
+
+Leitura HTTP local em blocos, fila de entrada com prioridade para eventos confiáveis, captura sem sobreposição e métricas por etapa. Consulte [auditoria, configuração ICE, testes e pendências](docs/performance-0.7.md). As metas de FPS e latência dependem de validação entre computadores.

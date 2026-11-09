@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'node:crypto';
 const key = value => createHash('sha256').update(value).digest('hex');
 const secret = () => randomBytes(32).toString('base64url');
 export class SessionHub {
-  constructor(devices, { now = Date.now, operatorName = 'Operador local', onEnd = () => {} } = {}) { Object.assign(this, { devices, now, operatorName, onEnd }); this.current = null; this.tickets = new Map(); }
+  constructor(devices, { now = Date.now, operatorName = 'Operador local', onEnd = () => {}, rtcConfiguration = () => ({iceServers:[]}) } = {}) { Object.assign(this, { devices, now, operatorName, onEnd, rtcConfiguration }); this.current = null; this.tickets = new Map(); }
   owner(token) { return this.devices?.owner(token); }
   sweep() {
     const s = this.current;
@@ -16,10 +16,11 @@ export class SessionHub {
     this.sweep(); if (this.current && this.current.state !== 'ended') throw new Error('BUSY');
     if (this.devices.verify(code) !== 'identified') throw new Error('OFFLINE');
     const deviceId=this.devices.codes.get(code.toUpperCase().replace(/[ -]/g,'')), token=secret();
-    this.current={id:secret(),deviceId,nativeKey:this.devices.active.get(deviceId),techKey:key(token),browserKey:null,state:'pending',permission:'none',permissionRevision:0,operatorName:this.operatorName,start:new Date(this.now()).toISOString(),expires:this.now()+60000,alive:{tech:this.now(),native:this.now()},commands:[],offer:null,answer:null,stats:null,seq:0};
+    const id=secret();
+    this.current={id,rtc:this.rtcConfiguration(id),deviceId,nativeKey:this.devices.active.get(deviceId),techKey:key(token),browserKey:null,state:'pending',permission:'none',permissionRevision:0,operatorName:this.operatorName,start:new Date(this.now()).toISOString(),expires:this.now()+60000,alive:{tech:this.now(),native:this.now()},commands:[],offer:null,answer:null,stats:null,seq:0};
     return { token, ...this.public(this.current) };
   }
-  public(s) { return { id:s.id,state:s.state,permission:s.permission,permissionRevision:s.permissionRevision,operatorName:s.operatorName,reason:s.reason??null,offer:s.offer,answer:s.answer,stats:s.stats }; }
+  public(s) { return { id:s.id,state:s.state,permission:s.permission,permissionRevision:s.permissionRevision,operatorName:s.operatorName,reason:s.reason??null,offer:s.offer,answer:s.answer,stats:s.stats,...(['approved','active'].includes(s.state)?{rtc:s.rtc}:{}) }; }
   client(token) { this.sweep(); const id=this.owner(token),s=this.current; if (!id || s?.deviceId!==id)return null; if(s.state!=='ended')s.alive.native=this.now();return s; }
   technician(token) { this.sweep(); const s=this.current; if (!s || typeof token!=='string' || s.techKey!==key(token))throw new Error('DENIED'); if(s.state!=='ended')s.alive.tech=this.now();return s; }
   browser(token) { this.sweep(); const s=this.current; if (!s || !s.browserKey || typeof token!=='string' || s.browserKey!==key(token)||!['approved','active'].includes(s.state))throw new Error('DENIED');s.alive.capture=this.now();return s; }

@@ -37,7 +37,7 @@ const evidence = { date: new Date().toISOString(), scope: 'native-loopback-fault
 try {
   const { stdout } = await promisify(execFile)(resolve('.cache/native/NativeBridgeSmoke.exe'), [`http://127.0.0.1:${proxy.address().port}/`, join(dir, 'identity'), '--race'], { windowsHide: true, timeout: 30000, env: { ...process.env, VOADESK_TEST_OPERATOR_TOKEN: service.operatorToken } });
   Object.assign(evidence, JSON.parse(stdout.trim())); assert.equal(tested, true);
-} catch (error) { evidence.result = 'failed'; evidence.failure = error.stdout?.trim() || error.message; process.exitCode = 1; }
+} catch (error) { evidence.result = 'failed'; evidence.failure = error.stdout?.trim() || error.message; evidence.detail=error.stderr?.trim(); process.exitCode = 1; }
 finally {
   proxy.closeAllConnections(); await new Promise(r => proxy.close(r)); await service.close();
   assert.equal(dirname(dir), tmpdir().replace(/[\\/]$/, '')); await rm(dir, { recursive: true, force: true });

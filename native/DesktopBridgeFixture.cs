@@ -16,7 +16,10 @@ public static class DesktopBridgeFixture {
    });await bridge.Initialize(Environment.GetEnvironmentVariable("VOADESK_FIXTURE_TICKET"));Console.WriteLine(new JavaScriptSerializer().Serialize(new{kind="ready",url=bridge.BootstrapUrl}));timer.Start();}
    catch(Exception e){Console.WriteLine(new{error=e.GetType().Name});form.Close();}
   };
-  timer.Tick+=async delegate{if(busy)return;busy=true;try{var json=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(await http.GetStringAsync(new Uri(new Uri(args[0]),"v3/client/commands")));string state=Convert.ToString(json["state"]);if(state!="active"&&state!="approved"){allowed=false;input.Enabled=false;bridge.Dispose();form.Close();}}catch{allowed=false;form.Close();}finally{busy=false;}};
+  // Match the real ClientWindow presence heartbeat; otherwise this synthetic
+  // fixture expires after 90 seconds even while its WebRTC session is healthy.
+  int ticks=0;
+  timer.Tick+=async delegate{if(busy)return;busy=true;try{if(++ticks%20==0)await http.GetStringAsync(new Uri(new Uri(args[0]),"v2/clients/status"));var json=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(await http.GetStringAsync(new Uri(new Uri(args[0]),"v3/client/commands")));string state=Convert.ToString(json["state"]);if(state!="active"&&state!="approved"){allowed=false;input.Enabled=false;bridge.Dispose();form.Close();}}catch{allowed=false;form.Close();}finally{busy=false;}};
   form.FormClosed+=delegate{allowed=false;timer.Stop();input.Dispose();if(bridge!=null)bridge.Dispose();http.Dispose();};Application.Run(form);timer.Dispose();
  }
 }

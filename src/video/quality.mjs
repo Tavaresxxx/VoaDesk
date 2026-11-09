@@ -13,7 +13,7 @@ export class QualityPolicy {
   choose(preference,automatic=this.automatic){profileFor(preference);this.preference=preference;this.automatic=automatic;this.level=0;this.bad=this.good=0;this.last=-Infinity;}
   sample(s) {
     if(!this.automatic)return null;
-    const bad=(s.lossPercent??0)>3||(s.jitterMs??0)>35||(s.rttMs??0)>160||(s.decodeMs??0)>35||s.qualityLimitation==='cpu'||s.qualityLimitation==='bandwidth';
+    const bad=(s.lossPercent??0)>3||(s.jitterMs??0)>35||(s.rttMs??0)>160||(s.decodeMs??0)>35||(s.captureBridgeMs??0)>50||s.qualityLimitation==='cpu'||s.qualityLimitation==='bandwidth';
     const known=['lossPercent','jitterMs','rttMs','decodeMs'].some(k=>Number.isFinite(s[k]));
     this.bad=bad?this.bad+1:0;this.good=known&&!bad?this.good+1:0;
     if(this.bad>=3&&this.level<2&&this.now()-this.last>=20000){this.level++;this.last=this.now();this.bad=this.good=0;return 'A conexão ou o processamento oscilou. Ajustamos a imagem para manter o atendimento.';}

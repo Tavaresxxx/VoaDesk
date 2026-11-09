@@ -20,6 +20,9 @@ public sealed class DesktopBridge : IDisposable {
  readonly Action<Dictionary<string,object>> input; readonly Action<Rectangle> target; readonly Action stop;
  readonly string secret=Guid.NewGuid().ToString("N")+Guid.NewGuid().ToString("N"); readonly Uri endpoint;
  readonly Func<Rectangle,Bitmap> capture;
+ readonly System.Threading.SemaphoreSlim captureGate=new System.Threading.SemaphoreSlim(1,1);
+ static readonly ImageCodecInfo jpegCodec=ImageCodecInfo.GetImageEncoders().First(c=>c.FormatID==ImageFormat.Jpeg.Guid);
+ double captureMs,jpegEncodeMs;
  readonly object gate=new object(); readonly Dictionary<string,Transfer> transfers=new Dictionary<string,Transfer>();
  string selected=Screen.PrimaryScreen.DeviceName; long generation=0;int activeRequests=0;bool disposed,booted; public readonly string Origin;
  public string BootstrapUrl {get{return Origin+"/bootstrap?key="+secret;}}
@@ -37,6 +40,7 @@ public sealed class DesktopBridge : IDisposable {
   {"/support/quality.mjs",new[]{"VoaDesk.Capture.quality.mjs","text/javascript"}},
   {"/support/stats.mjs",new[]{"VoaDesk.Capture.stats.mjs","text/javascript"}},
   {"/support/profiles.mjs",new[]{"VoaDesk.Capture.profiles.mjs","text/javascript"}},
+  {"/support/input-queue.mjs",new[]{"VoaDesk.Capture.input-queue.mjs","text/javascript"}},
   {"/support/files.mjs",new[]{"VoaDesk.Capture.files.mjs","text/javascript"}},
   {"/support/theme.css",new[]{"VoaDesk.Capture.theme.css","text/css"}},
   {"/support/capture.css",new[]{"VoaDesk.Capture.capture.css","text/css"}},
@@ -46,13 +50,15 @@ public sealed class DesktopBridge : IDisposable {
  bool Authorized(){if(disposed||owner.IsDisposed)return false;try{return (bool)owner.Invoke(new Func<bool>(allowed));}catch{return false;}}
  async Task Accept(){while(!disposed)try{var client=await listener.AcceptTcpClientAsync();if(System.Threading.Interlocked.Increment(ref activeRequests)>24){System.Threading.Interlocked.Decrement(ref activeRequests);client.Close();continue;}var work=Handle(client).ContinueWith(t=>{System.Threading.Interlocked.Decrement(ref activeRequests);if(t.IsFaulted){var ignored=t.Exception;}});}catch{if(disposed)return;}}
  static string Header(Dictionary<string,string> headers,string name){string v;return headers.TryGetValue(name,out v)?v:"";}
- async Task Handle(TcpClient client){using(client)using(var deadline=new System.Threading.Timer(delegate{try{client.Close();}catch{}},null,10000,System.Threading.Timeout.Infinite)){client.ReceiveTimeout=5000;client.SendTimeout=5000;var stream=client.GetStream();bool failed=false;string failure="Acesso encerrado ou solicitação inválida.";try{
+ async Task Handle(TcpClient client){using(client)using(var deadline=new System.Threading.Timer(delegate{try{client.Close();}catch{}},null,10000,System.Threading.Timeout.Infinite)){client.NoDelay=true;client.ReceiveTimeout=5000;client.SendTimeout=5000;var stream=client.GetStream();bool failed=false;string failure="Acesso encerrado ou solicitação inválida.";try{
   // Bound parsing independently of file size; file bodies are always chunks <= 64 KiB.
-  var bytes=new List<byte>();var one=new byte[1];int matched=0;while(bytes.Count<16384){int n=await stream.ReadAsync(one,0,1);if(n==0)return;bytes.Add(one[0]);matched=one[0]==new byte[]{13,10,13,10}[matched]?matched+1:(one[0]==13?1:0);if(matched==4)break;}if(matched!=4)throw new Exception();
-  string[] lines=Encoding.ASCII.GetString(bytes.ToArray()).Split(new[]{"\r\n"},StringSplitOptions.None);var first=lines[0].Split(' ');if(first.Length!=3)throw new Exception();string method=first[0];var url=new Uri(new Uri(Origin),first[1]);var headers=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);foreach(string line in lines.Skip(1)){int i=line.IndexOf(':');if(i>0)headers[line.Substring(0,i)]=line.Substring(i+1).Trim();}
+  var header=new byte[16384];int used=0,headerEnd=-1;
+  while(used<header.Length&&headerEnd<0){int previous=used;int n=await stream.ReadAsync(header,used,header.Length-used);if(n==0)return;used+=n;for(int i=Math.Max(0,previous-3);i<=used-4;i++)if(header[i]==13&&header[i+1]==10&&header[i+2]==13&&header[i+3]==10){headerEnd=i+4;break;}}
+  if(headerEnd<0)throw new Exception();
+  string[] lines=Encoding.ASCII.GetString(header,0,headerEnd).Split(new[]{"\r\n"},StringSplitOptions.None);var first=lines[0].Split(' ');if(first.Length!=3)throw new Exception();string method=first[0];var url=new Uri(new Uri(Origin),first[1]);var headers=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);foreach(string line in lines.Skip(1)){int i=line.IndexOf(':');if(i>0)headers.Add(line.Substring(0,i),line.Substring(i+1).Trim());}
   if(Header(headers,"Host")!=new Uri(Origin).Authority||url.Authority!=new Uri(Origin).Authority)throw new Exception();
   int length=0;string size=Header(headers,"Content-Length");if(size!=""&&(!Int32.TryParse(size,out length)||length<0||length>131072))throw new Exception();if(Header(headers,"Transfer-Encoding")!="")throw new Exception();
-  var body=new byte[length];int at=0;while(at<length){int n=await stream.ReadAsync(body,at,length-at);if(n==0)throw new Exception();at+=n;}
+  var body=new byte[length];int at=used-headerEnd;if(at>length)throw new Exception();Buffer.BlockCopy(header,headerEnd,body,0,at);while(at<length){int n=await stream.ReadAsync(body,at,length-at);if(n==0)throw new Exception();at+=n;}
   if(!Authorized())throw new Exception();
   if(url.AbsolutePath=="/bootstrap"&&method=="GET"&&!booted&&url.Query=="?key="+secret){booted=true;await Reply(stream,303,new byte[0],"text/plain","Location: /support/\r\nSet-Cookie: voadesk_native="+secret+"; HttpOnly; SameSite=Strict; Path=/\r\n");return;}
   if(!Header(headers,"Cookie").Split(';').Any(c=>c.Trim()=="voadesk_native="+secret))throw new Exception();
@@ -71,12 +77,19 @@ public sealed class DesktopBridge : IDisposable {
   if(route=="state"&&method=="GET"){await Json(output,new{native=true,selected=selected,generation=generation,monitors=Screen.AllScreens.Select((s,i)=>new{id=s.DeviceName,label="Monitor "+(i+1)+(s.Primary?" · principal":""),width=s.Bounds.Width,height=s.Bounds.Height}).ToArray(),sas=false});return;}
   if(route=="select"&&method=="POST"){string id=Convert.ToString(data["id"]);var screen=Screen.AllScreens.FirstOrDefault(s=>s.DeviceName==id);if(screen==null)throw new Exception();owner.Invoke(new Action(delegate{if(!allowed())throw new Exception();input(new Dictionary<string,object>{{"type","release"}});target(screen.Bounds);selected=id;generation++;}));await Json(output,new{selected=selected,generation=generation});return;}
   if(route=="frame"&&method=="GET"){
-   string requested=Uri.UnescapeDataString(url.Query.TrimStart('?'));var screen=Screen.AllScreens.FirstOrDefault(s=>s.DeviceName==requested&&s.DeviceName==selected);if(screen==null)throw new Exception();
+   string[] query=url.Query.TrimStart('?').Split('&');string requested=Uri.UnescapeDataString(query[0]);var screen=Screen.AllScreens.FirstOrDefault(s=>s.DeviceName==requested&&s.DeviceName==selected);if(screen==null)throw new Exception();
+   int maxHeight=screen.Bounds.Height;
+   if(query.Length>1&&(query.Length!=2||!query[1].StartsWith("maxHeight=")||!Int32.TryParse(query[1].Substring(10),out maxHeight)||maxHeight<180||maxHeight>16384))throw new Exception();
    // Capture and encode without blocking the window thread that applies input and revokes consent.
    var bounds=screen.Bounds;
-   byte[] jpeg=await Task.Run(()=>CaptureJpeg(bounds));
-   if(!Authorized())throw new Exception();
-   await Reply(output,200,jpeg,"image/jpeg");return;
+   long frameGeneration=generation;
+   if(!await captureGate.WaitAsync(0)){await Reply(output,429,new byte[0],"text/plain");return;}
+   try{
+    byte[] jpeg=await Task.Run(()=>CaptureJpeg(bounds,maxHeight));
+    if(!Authorized()||generation!=frameGeneration)throw new Exception();
+    string timing="X-VoaDesk-captureMs: "+captureMs.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\r\nX-VoaDesk-jpegEncodeMs: "+jpegEncodeMs.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\r\n";
+    await Reply(output,200,jpeg,"image/jpeg",timing);return;
+   }finally{captureGate.Release();}
   }
   if(route=="shortcut"&&method=="POST"){string action=Convert.ToString(data["action"]);if(action!="task-manager")throw new Exception();owner.Invoke(new Action(delegate{if(!allowed())throw new Exception();Process.Start(new ProcessStartInfo("taskmgr.exe"){UseShellExecute=true});}));await Json(output,new{ok=true});return;}
   if(route=="stop"&&method=="POST"){owner.BeginInvoke(stop);await Json(output,new{ok=true});return;}
@@ -102,15 +115,23 @@ public sealed class DesktopBridge : IDisposable {
   }
   throw new Exception();
  }
- byte[] CaptureJpeg(Rectangle bounds){
+ byte[] CaptureJpeg(Rectangle bounds,int maxHeight){
+  var timer=Stopwatch.StartNew();
   using(var bitmap=capture==null?new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format24bppRgb):capture(bounds))
   using(var memory=new MemoryStream())
   using(var parameters=new EncoderParameters(1)){
    if(capture==null)using(var graphics=Graphics.FromImage(bitmap))
     graphics.CopyFromScreen(bounds.Location,Point.Empty,bounds.Size,CopyPixelOperation.SourceCopy);
-   var codec=ImageCodecInfo.GetImageEncoders().First(c=>c.FormatID==ImageFormat.Jpeg.Guid);
+   captureMs=timer.Elapsed.TotalMilliseconds;timer.Restart();
    parameters.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
-   bitmap.Save(memory,codec,parameters);
+   if(bitmap.Height>maxHeight){
+    int width=Math.Max(1,(int)Math.Round(bitmap.Width*(double)maxHeight/bitmap.Height));
+    using(var scaled=new Bitmap(width,maxHeight,PixelFormat.Format24bppRgb)){
+     using(var graphics=Graphics.FromImage(scaled))graphics.DrawImage(bitmap,0,0,width,maxHeight);
+     scaled.Save(memory,jpegCodec,parameters);
+    }
+   }else bitmap.Save(memory,jpegCodec,parameters);
+   jpegEncodeMs=timer.Elapsed.TotalMilliseconds;
    return memory.ToArray();
   }
  }

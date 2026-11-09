@@ -21,7 +21,7 @@ export class StatsSampler {
       jitterBufferMs:per(incoming,prev?.incoming,'jitterBufferDelay','jitterBufferEmittedCount'),freezeCount:incoming?.freezeCount??null,freezesInInterval:delta(incoming,prev?.incoming,'freezeCount'),
       decodedFrames:incoming?.framesDecoded??null,encodedFrames:out?.framesEncoded??null,droppedFrames:incoming?.framesDropped??null,dropPercent:dropped!==null&&decoded!==null&&dropped+decoded>0?100*dropped/(dropped+decoded):null,
       codec:codec?.mimeType??null,codecParameters:codec?.sdpFmtpLine??null,encoder:out?.encoderImplementation??'não exposto',decoder:incoming?.decoderImplementation??'não exposto',powerEfficientEncoder:out?.powerEfficientEncoder??null,powerEfficientDecoder:incoming?.powerEfficientDecoder??null,
-      route:pair?(local?.candidateType==='relay'||remote?.candidateType==='relay'?'relay':'local-direct'):'unknown',qualityLimitation:out?.qualityLimitationReason??null,visualLatencyMs:null};
+      route:pair?(local?.candidateType==='relay'||remote?.candidateType==='relay'?'relay':local?.candidateType==='srflx'||remote?.candidateType==='srflx'?'direct-nat':'local-direct'):'unknown',qualityLimitation:out?.qualityLimitationReason??null,visualLatencyMs:null};
     this.previous={out,incoming};return r;
   }
 }

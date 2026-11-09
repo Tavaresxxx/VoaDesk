@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 public sealed class UpdatePackage {
- public const string CurrentVersion="0.6.0";
+ public const string CurrentVersion="0.7.0";
  public string Version,Hash; public int Size; readonly Uri server;
  static Stream Resource(string n){return Assembly.GetExecutingAssembly().GetManifestResourceStream(n);}
  public UpdatePackage(Uri server){this.server=server;}

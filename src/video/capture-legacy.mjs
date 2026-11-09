@@ -26,7 +26,7 @@ $('share').onclick=async()=>{
     if(closed){stream.getTracks().forEach(t=>t.stop());return;}
     const track=stream.getVideoTracks()[0];if(track.getSettings().displaySurface!=='monitor')throw new Error('Selecione um monitor inteiro.');
     track.onended=()=>void stop();
-    pc=peer();sender=pc.addTransceiver(track,{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
+    pc=peer((await (await fetch('/support/state')).json()).rtc);sender=pc.addTransceiver(track,{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
     const wire=e=>{
       if(e.channel.label==='control')control=e.channel;
       e.channel.onmessage=async event=>{
