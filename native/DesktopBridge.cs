@@ -72,7 +72,11 @@ public sealed class DesktopBridge : IDisposable {
   if(route=="select"&&method=="POST"){string id=Convert.ToString(data["id"]);var screen=Screen.AllScreens.FirstOrDefault(s=>s.DeviceName==id);if(screen==null)throw new Exception();owner.Invoke(new Action(delegate{if(!allowed())throw new Exception();input(new Dictionary<string,object>{{"type","release"}});target(screen.Bounds);selected=id;generation++;}));await Json(output,new{selected=selected,generation=generation});return;}
   if(route=="frame"&&method=="GET"){
    string requested=Uri.UnescapeDataString(url.Query.TrimStart('?'));var screen=Screen.AllScreens.FirstOrDefault(s=>s.DeviceName==requested&&s.DeviceName==selected);if(screen==null)throw new Exception();
-   using(var bitmap=capture==null?new Bitmap(screen.Bounds.Width,screen.Bounds.Height,PixelFormat.Format24bppRgb):capture(screen.Bounds)){if(capture==null)using(var g=Graphics.FromImage(bitmap))g.CopyFromScreen(screen.Bounds.Location,Point.Empty,screen.Bounds.Size,CopyPixelOperation.SourceCopy);using(var memory=new MemoryStream()){var codec=ImageCodecInfo.GetImageEncoders().First(c=>c.FormatID==ImageFormat.Jpeg.Guid);using(var p=new EncoderParameters(1)){p.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);bitmap.Save(memory,codec,p);}if(!Authorized())throw new Exception();await Reply(output,200,memory.ToArray(),"image/jpeg");}}return;
+   // Capture and encode without blocking the window thread that applies input and revokes consent.
+   var bounds=screen.Bounds;
+   byte[] jpeg=await Task.Run(()=>CaptureJpeg(bounds));
+   if(!Authorized())throw new Exception();
+   await Reply(output,200,jpeg,"image/jpeg");return;
   }
   if(route=="shortcut"&&method=="POST"){string action=Convert.ToString(data["action"]);if(action!="task-manager")throw new Exception();owner.Invoke(new Action(delegate{if(!allowed())throw new Exception();Process.Start(new ProcessStartInfo("taskmgr.exe"){UseShellExecute=true});}));await Json(output,new{ok=true});return;}
   if(route=="stop"&&method=="POST"){owner.BeginInvoke(stop);await Json(output,new{ok=true});return;}
@@ -97,6 +101,18 @@ public sealed class DesktopBridge : IDisposable {
    }if(chunk!=null)await Reply(output,200,chunk,"application/octet-stream");else await Json(output,new{ok=true});return;
   }
   throw new Exception();
+ }
+ byte[] CaptureJpeg(Rectangle bounds){
+  using(var bitmap=capture==null?new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format24bppRgb):capture(bounds))
+  using(var memory=new MemoryStream())
+  using(var parameters=new EncoderParameters(1)){
+   if(capture==null)using(var graphics=Graphics.FromImage(bitmap))
+    graphics.CopyFromScreen(bounds.Location,Point.Empty,bounds.Size,CopyPixelOperation.SourceCopy);
+   var codec=ImageCodecInfo.GetImageEncoders().First(c=>c.FormatID==ImageFormat.Jpeg.Guid);
+   parameters.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
+   bitmap.Save(memory,codec,parameters);
+   return memory.ToArray();
+  }
  }
  static void ValidateInput(Dictionary<string,object> e){string type=Convert.ToString(e["type"]);if(!new[]{"release","move","down","up","wheel","text","keyDown","keyUp","guide"}.Contains(type))throw new Exception();if(new[]{"move","down","up","guide"}.Contains(type)){double x=Convert.ToDouble(e["x"]),y=Convert.ToDouble(e["y"]);if(Double.IsNaN(x)||Double.IsNaN(y)||x<0||x>1||y<0||y>1)throw new Exception();}if(type=="down"||type=="up"){int b=Convert.ToInt32(e["button"]);if(b<0||b>2)throw new Exception();}if(type=="text"&&Convert.ToString(e["text"]).Length>64)throw new Exception();if(type=="wheel"){double delta=Convert.ToDouble(e["delta"]);if(Double.IsNaN(delta)||Math.Abs(delta)>1200)throw new Exception();}}
  static Task Json(Stream stream,object value){return Reply(stream,200,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(value)),"application/json");}

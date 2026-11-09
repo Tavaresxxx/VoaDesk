@@ -5,20 +5,36 @@ import {fileRpc,fileInfo,toBase64,fromBase64} from './files.mjs';
 const $=id=>document.getElementById(id);
 async function post(route,value={}){const r=await fetch('/support/'+route,{method:'POST',headers:{'Content-Type':'application/json','X-VoaDesk':'1'},body:JSON.stringify(value)}),data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.message||'Operação indisponível ou atendimento encerrado.');return data;}
 async function nativeGet(route){const r=await fetch('/support/native/'+route);if(!r.ok)throw new Error('Atualize e abra o aplicativo VoaDeskCliente para compartilhar todos os monitores.');return r.json();}
-let pc,stream,sender,control,files,closed=false,starting=false,applied=false,lastStats={},busy=false,qualityQueue=Promise.resolve(),inputSending=false,native,frameTimer,frameBusy=false,switching=false;
+let pc,stream,sender,control,files,closed=false,starting=false,applied=false,lastStats={},busy=false,qualityQueue=Promise.resolve(),inputSending=false,native,frameTimer,frameRequest,switching=false;
+const maxCaptureFps=30;
 const canvas=document.createElement('canvas'),context=canvas.getContext('2d',{alpha:false}),pendingInput=[],policy=new QualityPolicy(),sampler=new StatsSampler();
 const notice=text=>{if(control?.readyState==='open')control.send(JSON.stringify({type:'qualityNotice',text}));};
 const monitors=()=>{if(control?.readyState==='open')control.send(JSON.stringify({type:'monitors',...native}));};
 async function frame(){
- if(closed||frameBusy||switching)return;frameBusy=true;const selected=native.selected;
- try{const r=await fetch('/support/native/frame?'+encodeURIComponent(selected));if(!r.ok)throw new Error();const bitmap=await createImageBitmap(await r.blob());try{if(!closed&&selected===native.selected){if(canvas.width!==bitmap.width||canvas.height!==bitmap.height){canvas.width=bitmap.width;canvas.height=bitmap.height;}context.drawImage(bitmap,0,0);}}finally{bitmap.close();}}
- catch{await stop();}finally{frameBusy=false;}
+ const r=await fetch('/support/native/frame?'+encodeURIComponent(native.selected));
+ if(!r.ok)throw new Error('Não foi possível capturar a imagem do monitor.');
+ const bitmap=await createImageBitmap(await r.blob());
+ try{
+  if(closed||switching)return;
+  if(canvas.width!==bitmap.width||canvas.height!==bitmap.height){canvas.width=bitmap.width;canvas.height=bitmap.height;}
+  context.drawImage(bitmap,0,0);
+  stream?.getVideoTracks()[0].requestFrame();
+ }finally{bitmap.close();}
+}
+async function captureNextFrame(){
+ if(closed||switching)return;
+ const started=performance.now();
+ frameRequest=frame();
+ try{await frameRequest;}catch(e){await stop(true,e.message);return;}finally{frameRequest=null;}
+ if(closed||switching)return;
+ const fps=Math.min(maxCaptureFps,policy.encoding(canvas.height).maxFramerate);
+ frameTimer=setTimeout(captureNextFrame,Math.max(0,1000/fps-(performance.now()-started)));
 }
 async function flushInput(){if(inputSending||closed)return;inputSending=true;try{while(pendingInput.length&&!closed)await post('input',{events:pendingInput.splice(0,8)});}catch{await stop();}finally{inputSending=false;}}
 function queueInput(data){if(closed||switching)return;if(data.type==='move'&&pendingInput.at(-1)?.type==='move')pendingInput.pop();if(pendingInput.length>=64)throw new Error('Fila excedida.');pendingInput.push(data);void flushInput();}
 const adjust=()=>qualityQueue=qualityQueue.catch(()=>{}).then(()=>applyQuality(sender,stream.getVideoTracks()[0],policy));
 async function stop(notify=true,reason='Sua tela não está sendo compartilhada.'){
- if(closed)return;closed=true;clearInterval(timer);clearInterval(frameTimer);files?.close();stream?.getTracks().forEach(t=>t.stop());pc?.close();$('share').disabled=$('end').disabled=true;$('capture-title').textContent='Tudo encerrado.';$('status').textContent='Atendimento encerrado. '+reason;document.body.dataset.state='ended';
+ if(closed)return;closed=true;clearInterval(timer);clearTimeout(frameTimer);files?.close();stream?.getTracks().forEach(t=>t.stop());pc?.close();$('share').disabled=$('end').disabled=true;$('capture-title').textContent='Tudo encerrado.';$('status').textContent='Atendimento encerrado. '+reason;document.body.dataset.state='ended';
  if(notify){await post('end').catch(()=>{});await post('native/stop').catch(()=>{});}
 }
 $('end').onclick=()=>void stop();$('share').hidden=true;
@@ -33,15 +49,16 @@ async function start(){
  if(starting||closed||pc)return;starting=true;
  try{
   native=await nativeGet('state');Object.assign(native,await post('native/select',{id:native.selected}));await frame();if(closed)return;
-  stream=canvas.captureStream(15);pc=peer();sender=pc.addTransceiver(stream.getVideoTracks()[0],{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
+  stream=canvas.captureStream(0);pc=peer();sender=pc.addTransceiver(stream.getVideoTracks()[0],{direction:'sendonly',streams:[stream]}).sender;prefer(pc.getTransceivers()[0],true);
   control=pc.createDataChannel('control',{ordered:true});control.onopen=monitors;
   const receive=async event=>{let type;try{const data=JSON.parse(event.data);type=data.type;
    if(data.type==='quality'){policy.choose(data.preference,data.automatic);await adjust();return;}
    if(data.type==='feedback'){const text=policy.sample({...lastStats,...data.stats});if(text){await adjust();notice(text);}return;}
    if(data.type==='monitor'){
-    if(switching)return;switching=true;pendingInput.length=0;
-    try{await post('input',{type:'release'});const result=await post('native/select',{id:data.id});native.selected=result.selected;native.generation=result.generation;}finally{switching=false;}
-    await frame();monitors();return;
+    if(switching)return;switching=true;clearTimeout(frameTimer);pendingInput.length=0;
+    try{await frameRequest;if(closed)return;await post('input',{type:'release'});const result=await post('native/select',{id:data.id});native.selected=result.selected;native.generation=result.generation;}
+    finally{switching=false;void captureNextFrame();}
+    monitors();return;
    }
    if(data.type==='shortcut'){await post('native/shortcut',{action:data.action});return;}
 
@@ -50,7 +67,7 @@ async function start(){
   control.onmessage=receive;pc.createDataChannel('pointer',{ordered:false,maxRetransmits:0}).onmessage=receive;
   files=fileRpc(pc.createDataChannel('files',{ordered:true}),fileOperation);
   pc.onconnectionstatechange=()=>{if(['failed','disconnected','closed'].includes(pc.connectionState))void stop();};
-  frameTimer=setInterval(()=>void frame(),1000/15);
+  void captureNextFrame();
   await adjust();await pc.setLocalDescription(await pc.createOffer());await gather(pc);if(closed)return;await post('signal',pc.localDescription);
   $('status').textContent='Conectando ao técnico…';document.body.dataset.state='connecting';
  }catch(e){await stop(true,e.message);}finally{starting=false;}

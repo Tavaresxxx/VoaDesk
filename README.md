@@ -65,7 +65,7 @@ Arquivos usam um DataChannel confiável separado, em blocos confirmados de 16 Ki
 - `src/video/`: H.264/WebRTC, qualidade, estatísticas e protocolo de arquivos. A captura nova está incorporada ao EXE do cliente.
 - `src/pairing/`: códigos, presença e autorização. Os assets públicos legados continuam disponíveis para clientes anteriores à ponte nativa.
 
-A captura nativa atual usa GDI/JPEG em loopback e canvas/WebRTC H.264, com alvo de 15 capturas/s. Não há promessa de ganho de desempenho, captura acelerada de 60 FPS ou HDR/WCG. Não há TURN/STUN configurado; o teste entre computadores exige a mesma LAN e acesso ao servidor de sinalização. Redes distintas não têm funcionamento garantido.
+A captura nativa usa GDI/JPEG em loopback e canvas/WebRTC H.264, com alvo de até 30 capturas/s em SDR. A taxa efetiva depende do tempo de captura e do ajuste de qualidade. Para testar a fluidez, selecione **Imagem → Fluidez** com **Ajustar automaticamente** e veja os FPS, o RTT e a espera no buffer em **Diagnóstico → Detalhes técnicos**. O teste entre computadores exige a mesma LAN e acesso ao servidor de sinalização. O projeto ainda não configura TURN/STUN.
 
 No Render sem disco, presença e sessões são efêmeras; os códigos são derivados da identidade privada e da chave existente do servidor. Reinícios encerram sessões. Isso não equivale a banco persistente ou histórico no servidor. WebRTC usa DTLS-SRTP/SCTP; não anunciar autenticação pessoal externa ou E2EE verificada independentemente do servidor.
 

@@ -57,6 +57,21 @@ try{
  const bridgeReady=new Promise((ok,fail)=>{bridge=spawn(resolve('.cache/native/DesktopBridgeFixture.exe'),[ready.pairingOrigin+'/'],{windowsHide:true,env:{...process.env,VOADESK_FIXTURE_CLIENT:client.token,VOADESK_FIXTURE_TICKET:decision.ticket}});const deadline=setTimeout(()=>fail(new Error('Ponte sintética não abriu.')),10000);createInterface({input:bridge.stdout}).on('line',line=>{try{const data=JSON.parse(line);if(data.kind==='ready'){clearTimeout(deadline);ok(data.url);}else if(data.kind==='input')events.push(data);}catch{}});});
  const {chromium}=await import(pathToFileURL(resolve(process.env.FAROL_PLAYWRIGHT||'.cache/security-tools/node_modules/playwright/index.mjs')).href);browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--disable-features=WebRtcHideLocalIpsWithMdns','--autoplay-policy=no-user-gesture-required']});capture=await browser.newPage();capture.on('pageerror',e=>errors.push(e.message));await capture.goto(await bridgeReady);
  await wait(`document.getElementById('remote-video').videoWidth===1280`,30000);await wait(`document.getElementById('diagnostic-details').textContent.includes('video/H264')`);evidence.h264DecodedInWebView2=true;
+ evidence.presentedFpsSynthetic=await evaluate(`new Promise(resolve=>{
+   const video=document.getElementById('remote-video');
+   video.requestVideoFrameCallback((started,first)=>{
+     function sample(now,frame){
+       if(now-started<2000){video.requestVideoFrameCallback(sample);return;}
+       resolve((frame.presentedFrames-first.presentedFrames)*1000/(now-started));
+     }
+     video.requestVideoFrameCallback(sample);
+   });
+ })`);
+ evidence.frameFetchMs=await capture.evaluate(()=>{
+   const frames=performance.getEntriesByType('resource').filter(entry=>new URL(entry.name).pathname==='/support/native/frame').slice(-30);
+   return frames.reduce((total,frame)=>total+frame.duration,0)/frames.length;
+ });
+ evidence.videoDiagnostics=await evaluate(`document.getElementById('diagnostic-details').innerText`);
  // Fullscreen is entered via a user-gesture equivalent in this isolated in-process QA driver.
  if(!(await rpc('state')).full)await evaluate(`document.getElementById('full-session').click();true`,true);await sleep(200);assert.equal((await rpc('state')).full,true);evidence.nativeFullscreen=true;
  await wait(`!document.getElementById('session-monitor').disabled`);const monitors=await evaluate(`document.getElementById('session-monitor').options.length`);for(let i=0;i<monitors;i++){await evaluate(`document.getElementById('session-monitor').selectedIndex=${i};document.getElementById('session-monitor').dispatchEvent(new Event('change'));true`);await wait(`!document.getElementById('session-monitor').disabled`);await wait(`document.getElementById('quality-notice').textContent.includes('Monitor conectado')`);}evidence.monitorsSelected=monitors;

@@ -19,6 +19,6 @@ O teste não prova captura real dos dois desktops, injeção no Windows, rede en
 - Confirmar imagem, posição do mouse e entrada reais entre dois Windows, com escalas DPI e resoluções diferentes.
 - Testar arquivo realmente grande, espaço insuficiente e queda de rede. Não há limite fixo em MB/GB, mas há espaço livre, duração da sessão e limites do sistema de arquivos.
 - CTRL+ALT+DEL exige serviço ou aplicativo UIAccess; o botão explica a indisponibilidade na versão portátil. Não instala serviço nem altera políticas Windows. Gerenciador de Tarefas é um atalho separado.
-- Captura nativa por GDI/JPEG/canvas, alvo de 15 capturas/s e SDR. Desempenho em dois computadores e telas HDR não foi validado.
+- Captura nativa por GDI/JPEG/canvas em SDR, com alvo de até 30 capturas/s e uma solicitação de quadro por vez. A captura e a codificação JPEG rodam fora da fila da janela do cliente. O desempenho em dois computadores permanece pendente de medição.
 - O EXE e o ZIP em `instalação/` foram atualizados para teste, com os anteriores preservados em `.cache/installation-before-test-*`. A pasta extraída do técnico também recebeu os arquivos novos, preservando `.runtime` e dados locais.
 - O cliente inclui os arquivos de captura no EXE. O teste integrado confirmou zero solicitações de HTML/scripts/estilos de captura ao servidor de sinalização. O Render permanece sem alterações; seu funcionamento entre computadores com estes pacotes precisa ser testado.

@@ -49,7 +49,15 @@ function setTestControls(active){
   for(const id of ['session-files','task-manager','secure-attention','guide-mode'])$(id).hidden=active;
   $('remote-video').setAttribute('aria-label',active?'Tela de testes simulada nesta máquina':'Tela compartilhada pelo cliente');
 }
-const send=(data,fast=false)=>{if(monitorSwitching&&['move','down','up','wheel','text','keyDown','keyUp','guide'].includes(data.type))return;const c=fast?pointer:channel;if(c?.readyState!=='open')return;if(c.bufferedAmount>16384){if(!ended)void end();return;}c.send(JSON.stringify({...data,monitorId,monitorGeneration,permissionRevision:session?.permissionRevision}));};
+const send=(data,fast=false)=>{
+  if(monitorSwitching&&['move','down','up','wheel','text','keyDown','keyUp','guide'].includes(data.type))return;
+  const c=fast?pointer:channel;
+  if(c?.readyState!=='open')return;
+  // A newer pointer position can replace a lost move. Clicks and keys use the reliable channel.
+  if(fast&&c.bufferedAmount>512)return;
+  if(c.bufferedAmount>16384){if(!ended)void end();return;}
+  c.send(JSON.stringify({...data,monitorId,monitorGeneration,permissionRevision:session?.permissionRevision}));
+};
 function quality(){send({type:'quality',preference:$('session-profile').value,automatic:$('auto-quality').checked});}
 function release(){send({type:'release'});}
 async function end(notify=true,message='Atendimento encerrado. Você pode iniciar uma nova conexão.'){
