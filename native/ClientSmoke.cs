@@ -23,9 +23,16 @@ public static class ClientSmoke {
                 try {
                     if(previous!=null&&value!=previous)throw new Exception();
                     float scale=form.CurrentAutoScaleDimensions.Width/96f;
-                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=440*scale+1&&form.ClientSize.Height<=308*scale+1&&form.Controls.OfType<Button>().Count(b=>b.Visible)==1&&label.TabStop&&label.AccessibleRole==AccessibleRole.PushButton&&form.Controls.Cast<Control>().Where(c=>c.Visible).All(c=>c.Right<=form.ClientSize.Width&&c.Bottom<=form.ClientSize.Height);
+                    bool icon=form.Icon!=null, logo=form.Controls.OfType<PictureBox>().Any(p=>p.Image!=null), compact=form.ClientSize.Width<=440*scale+1&&form.ClientSize.Height<=VoaTheme.CompactHeight*scale+1&&form.Controls.OfType<Button>().Count(b=>b.Visible)==3&&label.TabStop&&label.AccessibleRole==AccessibleRole.PushButton&&form.Controls.Cast<Control>().Where(c=>c.Visible).All(c=>c.Right<=form.ClientSize.Width&&c.Bottom<=form.ClientSize.Height);
                     label.Text="XXXX XXXX XXXX XXXX";
                     using(var bitmap=new Bitmap(form.Width,form.Height)) { form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height)); bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png); }
+                    for(float factor=1f;factor<=1.5f;factor+=.25f){
+                        float current=form.CurrentAutoScaleDimensions.Width/96f;float ratio=factor/current;
+                        form.Scale(new SizeF(ratio,ratio));form.ClientSize=new Size((int)(VoaTheme.Width*factor),(int)(VoaTheme.CompactHeight*factor));
+                        if(form.Controls.Cast<Control>().Where(c=>c.Visible).Any(c=>c.Right>form.ClientSize.Width+1||c.Bottom>form.ClientSize.Height+1))throw new Exception("Scaled control outside client area");
+                        using(var scaled=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(scaled,new Rectangle(0,0,scaled.Width,scaled.Height));scaled.Save(args[1]+"."+factor.ToString(System.Globalization.CultureInfo.InvariantCulture)+".png",System.Drawing.Imaging.ImageFormat.Png);}
+                        form.Scale(new SizeF(1/ratio,1/ratio));form.ClientSize=new Size((int)(VoaTheme.Width*current),(int)(VoaTheme.CompactHeight*current));
+                    }
                     label.Text=value;
                     using(var client=new HttpClient()) {
                         client.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Environment.GetEnvironmentVariable("VOADESK_TEST_OPERATOR_TOKEN"));

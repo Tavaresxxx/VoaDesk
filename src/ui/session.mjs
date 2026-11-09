@@ -83,7 +83,7 @@ export async function requestSession(code,test=false){
   cancelRequested=false;session=null;sessionEpoch++;last={};sampler=new StatsSampler();fps=null;
   setTestControls(test);
   $('end-session').textContent=test?'Cancelar teste':'Cancelar solicitação';$('permission-status').textContent=test?'Somente a tela simulada nesta máquina':'Nenhum acesso autorizado';
-  waiting(test?'Preparando sua tela de testes':'Verificando código',test?'Criando uma conexão de vídeo local e uma área interativa descartável.':'Localizando o cliente e enviando a solicitação de acesso.');panel(true);if(!test)fullscreen();
+  waiting(test?'Preparando sua tela de testes':'Verificando código',test?'Criando uma conexão de vídeo local e uma área interativa descartável.':'Localizando o cliente e enviando a solicitação de acesso.');panel(true);
   requesting=(async()=>{if(test){localTest=createLocalTest();session=await localTest.start();}else session=await post('request',{code});needsEnd=true;})();
   try{
     await requesting;if(cancelRequested)return;
@@ -96,7 +96,8 @@ $('end-session').onclick=()=>void end();$('session-profile').onchange=quality;$(
 $('reset-local-test').onclick=()=>{release();held.clear();send({type:'testReset'});};
 $('session-diagnostic').onclick=()=>{const expanded=$('session-diagnostics').hidden;$('session-diagnostics').hidden=!expanded;$('session-diagnostic').setAttribute('aria-expanded',String(expanded));if(expanded)$('check-connection').focus({preventScroll:true});};
 $('guide-mode').onclick=()=>{release();guiding=!guiding;$('guide-mode').setAttribute('aria-pressed',String(guiding));$('guide-mode').textContent=guiding?'Orientação ativa':'Orientar cliente';};
-$('full-session').onclick=()=>{if(document.fullscreenElement)void document.exitFullscreen();else void $('session-panel').requestFullscreen();};
+$('full-session').onclick=()=>{if(document.fullscreenElement)void document.exitFullscreen();else fullscreen();};
+document.addEventListener('fullscreenchange',()=>{$('full-session').textContent=document.fullscreenElement?'Sair da tela cheia':'Tela cheia';});
 $('session-zoom').onchange=zoom;$('remote-video').addEventListener('resize',zoom);
 $('session-monitor').onchange=()=>{release();held.clear();monitorSwitching=true;$('session-monitor').disabled=true;$('quality-notice').textContent='Trocando de monitor…';send({type:'monitor',id:$('session-monitor').value});};
 $('task-manager').onclick=()=>send({type:'shortcut',action:'task-manager'});

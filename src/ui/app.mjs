@@ -10,15 +10,16 @@ let clientIndex=createClientSearch([]);
 let suggestions=[],activeSuggestion=-1,clientsLoaded=false,selectedCode=null;
 function message(id,text,type=''){$(id).textContent=text;$(id).className='message '+type;}
 function showPage(name,focus=true){
-  const pages={home:'Visão geral',clients:'Clientes salvos',help:'Ajuda e diagnóstico'};
+  const pages={home:'Visão geral',clients:'Clientes salvos',help:'Ajuda e diagnóstico',history:'Histórico'};
   if(!pages[name])return;
   closeSearch();
+  if(name==='history')void loadHistory();
   for(const key of Object.keys(pages))$(key+'-page').hidden=key!==name;
   for(const button of document.querySelectorAll('.nav-item')){
     if(button.dataset.page===name)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
   }
   $('page-label').textContent=pages[name];
-  if(focus)(name==='home'?$('access-code'):name==='clients'?$('client-search'):$('check-connection')).focus({preventScroll:true});
+  if(focus)(name==='home'?$('access-code'):name==='clients'?$('client-search'):name==='history'?$('refresh-history'):$('check-connection')).focus({preventScroll:true});
 }
 document.querySelectorAll('[data-page]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.page)));
 window.addEventListener('voadesk:home',()=>showPage('home',false));
@@ -175,3 +176,24 @@ async function init(){
   }catch{$('open-receiver').disabled=true;message('access-message','Serviço local indisponível. Reabra o VoaDesk.','error');}
 }
 void init();
+
+async function loadHistory(){
+ const button=$('refresh-history');if(button.disabled)return;button.disabled=true;
+ $('history-status').textContent='Carregando histórico…';
+ try{const r=await fetch('/api/history');if(!r.ok)throw new Error();const rows=await r.json();
+ $('history-list').replaceChildren(...rows.slice().reverse().map(row=>{
+ const li=document.createElement('li'),date=document.createElement('strong'),detail=document.createElement('span');
+ date.textContent=new Date(row.start).toLocaleString('pt-BR');
+ detail.textContent=({stopped:'Encerrado',failed:'Falha',closed:'Janela fechada','source-ended':'Compartilhamento encerrado','connection-lost':'Conexão perdida'}[row.result]||'Resultado não reconhecido')+' · '+Math.max(0,Math.round((new Date(row.end)-new Date(row.start))/1000))+' s';
+ li.append(date,detail);return li;}));
+ $('history-status').textContent=rows.length?rows.length+' atividades registradas.':'Nenhuma atividade registrada neste computador.';
+ }catch{$('history-status').textContent='Não foi possível carregar o histórico. Selecione Atualizar histórico para tentar novamente.';}
+ finally{button.disabled=false;}
+}
+ $('refresh-history').onclick=loadHistory;
+
+const toolGroup=document.createElement('details');toolGroup.className='session-tools';
+const toolSummary=document.createElement('summary');toolSummary.textContent='Ferramentas e qualidade';
+const toolContent=document.createElement('div');toolContent.className='session-tools-content';toolGroup.append(toolSummary,toolContent);
+for(const id of ['task-manager','secure-attention','session-profile','auto-quality','guide-mode','session-diagnostic']){const el=$(id);toolContent.append(el.closest('label')||el);}
+$('session-options').append(toolGroup);

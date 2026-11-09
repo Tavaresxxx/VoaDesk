@@ -12,17 +12,18 @@
     <nav class="main-nav" aria-label="VoaDesk">
       <button class="nav-item" data-page="home" aria-current="page"><span class="nav-symbol" aria-hidden="true">⌂</span> Início</button>
       <button class="nav-item" data-page="clients"><span class="nav-symbol" aria-hidden="true">▤</span> Clientes salvos <span id="client-count" class="nav-count"></span></button>
+      <button class="nav-item" data-page="history"><span class="nav-symbol" aria-hidden="true">↺</span> Histórico</button>
       <button class="nav-item" data-page="help"><span class="nav-symbol" aria-hidden="true">?</span> Ajuda e diagnóstico</button>
     </nav>
-    <div class="rail-bottom"><span>Seu suporte. Mais perto.</span><small class="version">VoaDesk <span data-version>0.6.0</span></small></div>
+    <div class="rail-bottom"><span>Aplicativo do técnico</span><small class="version">VoaDesk <span data-version>0.6.0</span></small></div>
   </aside>
   <main>
     <header class="app-header"><span id="page-label">Visão geral</span><span id="connection-state" class="service-status" role="status">Conferindo serviço…</span></header>
     <div id="home-page" class="page">
-      <section class="welcome"><div><span class="eyebrow">BEM-VINDO AO VOADESK</span><h1>Uma conexão.<br>Muitas soluções.</h1><p>Receba ajuda ou dê o próximo passo com alguém.</p></div><div class="brand-space" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></section>
+      <section class="welcome"><div><span class="eyebrow">SUPORTE REMOTO</span><h1>Atendimentos</h1><p>Inicie um atendimento ou compartilhe o código deste computador.</p></div><div class="brand-space" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></section>
       <div class="intentions">
         <section class="access-section" id="access" aria-labelledby="access-heading">
-          <span class="step-label">01 / ACESSAR</span><h2 id="access-heading">Acessar outro dispositivo</h2><p class="section-description">Busque um cliente salvo pelo nome ou digite seu código de acesso.</p>
+          <span class="step-label">TÉCNICO</span><h2 id="access-heading">Iniciar atendimento</h2><p class="section-description">Busque um cliente salvo pelo nome ou digite seu código de acesso.</p>
           <form id="access-form">
             <label for="access-code">Nome ou código de acesso</label>
             <label class="search-field-label" for="access-search-field">Buscar em <select id="access-search-field"><option value="all">Nome e código</option><option value="name">Somente nome</option><option value="code">Somente código</option></select></label>
@@ -39,7 +40,7 @@
           <p class="permission-note">O cliente aceita o controle, os monitores e a transferência de arquivos antes da conexão.</p>
         </section>
         <section class="receive-section" aria-labelledby="receive-heading">
-          <span class="step-label">02 / RECEBER</span><h2 id="receive-heading">Receber acesso</h2><p class="section-description">Precisa de uma mão? Abra seu código e envie para quem vai ajudar.</p>
+          <span class="step-label">ESTE COMPUTADOR</span><h2 id="receive-heading">Receber acesso</h2><p class="section-description">Abra o aplicativo do cliente para compartilhar seu código com o técnico.</p>
           <div class="receive-preview"><span class="device-symbol" aria-hidden="true"></span><div><strong>Este dispositivo</strong><span>Seu código aparece no aplicativo do cliente.</span></div></div>
           <button type="button" id="open-receiver" class="secondary">Abrir meu código <span aria-hidden="true">↗</span></button>
           <p id="receiver-message" class="message" role="status">Você decide quando permitir ou encerrar um acesso.</p>
@@ -47,11 +48,11 @@
         </section>
       </div>
       <section class="local-test-card" aria-labelledby="local-test-heading">
-        <div><span class="eyebrow">EXPERIMENTE O VOADESK</span><h2 id="local-test-heading">Sua primeira conexão começa aqui.</h2><p>Conecte a uma tela de testes nesta máquina. Digite, clique, mova uma janela e desenhe, sem precisar de outro computador.</p><small>Ambiente simulado e descartável. Não controla a área de trabalho do Windows.</small></div>
+        <div><span class="eyebrow">TESTE LOCAL</span><h2 id="local-test-heading">Testar os controles</h2><p>Conecte a uma tela de testes nesta máquina. Digite, clique, mova uma janela e desenhe, sem precisar de outro computador.</p><small>Ambiente simulado e descartável. Não controla a área de trabalho do Windows.</small></div>
         <button type="button" id="start-local-test" class="secondary">Testar nesta máquina <span aria-hidden="true">↗</span></button>
         <p id="local-test-message" class="message" role="status" hidden></p>
       </section>
-      <div class="home-footnote"><span class="small-mark" aria-hidden="true"></span><p>Pronto para ajudar, sempre com permissão.</p><button type="button" class="text-button" data-page="help">Como funciona</button></div>
+      <div class="home-footnote"><span class="small-mark" aria-hidden="true"></span><p>Cada atendimento exige autorização do cliente.</p><button type="button" class="text-button" data-page="help">Como funciona</button></div>
     </div>
     <section id="clients-page" class="page" hidden aria-labelledby="saved-heading">
       <div class="page-heading"><div><span class="eyebrow">ACESSO RÁPIDO</span><h1 id="saved-heading">Clientes salvos</h1><p>Encontre um cliente e solicite acesso quando precisar.</p></div><button id="add-client" class="primary" type="button"><span aria-hidden="true">+</span> Adicionar cliente</button></div>
@@ -59,8 +60,13 @@
       <p id="saved-status" class="empty-state" role="status">Carregando clientes…</p><ul id="saved-clients" class="saved-list"></ul>
       <p class="help">Salvar um cliente facilita o próximo contato. A autorização continua sendo necessária a cada atendimento.</p>
     </section>
+    <section id="history-page" class="page" hidden aria-labelledby="history-heading">
+      <div class="page-heading"><div><h1 id="history-heading">Histórico</h1><p>Atividades registradas neste computador.</p></div><button id="refresh-history" class="secondary" type="button">Atualizar histórico</button></div>
+      <p id="history-status" class="message" role="status"></p><ul id="history-list" class="history-list" aria-label="Atividades recentes"></ul>
+      <p class="help">O registro local não identifica os clientes e não confirma vídeo ou controle remoto.</p>
+    </section>
     <section id="help-page" class="page" hidden aria-labelledby="help-heading">
-      <div class="page-heading"><div><span class="eyebrow">QUANDO PRECISAR</span><h1 id="help-heading">Vamos por partes.</h1><p>As respostas essenciais, sem complicação.</p></div></div>
+      <div class="page-heading"><div><span class="eyebrow">SUPORTE</span><h1 id="help-heading">Ajuda e diagnóstico</h1><p>Confira a conexão e consulte as instruções de atendimento.</p></div></div>
       <div class="help-layout"><div class="help-articles">
         <details open><summary>Como receber ajuda?</summary><p>Em Início, selecione Abrir meu código. Envie o código exibido para a pessoa que vai ajudar. Quando a solicitação chegar, clique em Aceitar conexão para autorizar controle, acesso aos monitores e transferência de arquivos.</p></details>
         <details><summary>Como acessar um dispositivo?</summary><p>Peça para o cliente abrir o VoaDesk, digite o código e selecione Solicitar acesso. Aguarde a autorização. Depois, use a barra do atendimento para trocar de monitor.</p></details>
@@ -74,7 +80,7 @@
     </section>
     <section class="session-panel" id="session-panel" role="dialog" aria-modal="true" aria-labelledby="session-status" hidden>
       <div class="session-toolbar"><img class="session-brand" src="/logo.png" alt="VoaDesk"><div class="session-heading"><strong id="session-status" role="status" aria-live="polite">Aguardando autorização</strong><small id="permission-status">Nenhum acesso autorizado</small></div><button type="button" id="end-session" class="danger">Encerrar atendimento</button></div>
-      <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-copy"><span class="eyebrow">ESTAMOS CONECTANDO VOCÊS</span><div class="waiting-symbol" aria-hidden="true"><img src="/symbol.png" alt=""></div><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="waiting-art" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></div>
+      <div id="session-waiting" class="session-waiting is-loading"><div class="waiting-copy"><span class="eyebrow">SOLICITAÇÃO DE ACESSO</span><div class="waiting-symbol" aria-hidden="true"><img src="/symbol.png" alt=""></div><h2 id="waiting-title">Aguardando o cliente aceitar</h2><p id="waiting-description">Peça ao cliente para permitir a conexão no aplicativo VoaDesk.</p><span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><div class="waiting-art" aria-hidden="true"><img class="watermark" src="/symbol.png" alt=""></div></div>
       <div class="session-options" id="session-options" hidden>
         <button id="reset-local-test" class="secondary" type="button" hidden>Reiniciar teste</button>
         <label>Monitor <select id="session-monitor" disabled><option>Aguardando monitores</option></select></label><label>Zoom <select id="session-zoom"><option value="fit">Ajustar à tela</option><option value="100">100%</option><option value="150">150%</option><option value="200">200%</option></select></label><button id="session-files" class="secondary" type="button" disabled>Arquivos ↔</button><button id="task-manager" class="secondary" type="button">Gerenciador de Tarefas</button><button id="secure-attention" class="secondary" type="button">CTRL+ALT+DEL</button><label>Imagem <select id="session-profile"><option value="quality">Qualidade</option><option value="balanced" selected>Equilibrada</option><option value="smooth">Fluidez</option></select></label><label class="inline"><input type="checkbox" id="auto-quality" checked> Ajustar automaticamente</label><button id="guide-mode" class="secondary" type="button" aria-pressed="false">Orientar cliente</button><button id="full-session" class="secondary" type="button">Tela cheia</button><button id="session-diagnostic" class="text-button" type="button" aria-expanded="false">Diagnóstico</button>
@@ -88,11 +94,11 @@
         <div id="session-diagnostics" hidden></div>
       </div>
     </section>
-    <footer class="app-footer"><span>Você mantém o controle.</span><span>VoaDesk · Windows</span></footer>
+    <footer class="app-footer"><span>Acesso com consentimento</span><span>VoaDesk · Windows</span></footer>
   </main>
   <dialog id="client-dialog" aria-labelledby="dialog-title"><form id="client-form">
     <div class="dialog-heading"><span class="eyebrow">CLIENTES SALVOS</span><button type="button" id="close-dialog" class="close-button" aria-label="Fechar">×</button></div>
-    <h2 id="dialog-title">Mais perto na próxima vez.</h2><p class="dialog-description">Salve o nome e o código para encontrar este cliente.</p>
+    <h2 id="dialog-title">Adicionar cliente</h2><p class="dialog-description">Salve o nome e o código para encontrar este cliente.</p>
     <label for="client-name">Nome do cliente</label><input id="client-name" name="name" maxlength="80" placeholder="Como você reconhece este cliente?" autocomplete="off" required>
     <label for="client-code">Código de acesso</label><input id="client-code" name="code" maxlength="19" placeholder="XXXX XXXX XXXX XXXX" autocomplete="off" spellcheck="false" required>
     <p id="client-message" class="message" role="status" aria-live="polite"></p>

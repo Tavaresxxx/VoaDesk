@@ -21,6 +21,9 @@ public static class TechnicianFixture {
       else if(action=="cdp"){result=Json.DeserializeObject(await form.Browser.CoreWebView2.CallDevToolsProtocolMethodAsync(Convert.ToString(message["method"]),Json.Serialize(message["parameters"])));}
       else if(action=="state")result=new{reveals=reveals,full=form.FormBorderStyle==FormBorderStyle.None,width=form.Width,height=form.Height,title=form.Text,status=form.StatusText,ready=form.Ready,hostExecutable=form.HostExecutable,hostRunning=form.HostRunning,nodeWindow=form.HostWindowHandle};
       else if(action=="screenshot"){using(var stream=File.Create(Convert.ToString(message["path"])))await form.Browser.CoreWebView2.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png,stream);result=true;}
+      else if(action=="activate"){form.Activate();form.BringToFront();result=true;}
+      else if(action=="window"){form.WindowState=(FormWindowState)Enum.Parse(typeof(FormWindowState),Convert.ToString(message["state"]));if(message.ContainsKey("width"))form.Size=new System.Drawing.Size(Convert.ToInt32(message["width"]),Convert.ToInt32(message["height"]));result=form.WindowState.ToString();}
+      else if(action=="zoom"){form.Browser.ZoomFactor=Convert.ToDouble(message["factor"]);result=form.Browser.ZoomFactor;}
       else if(action=="stop-host"){await form.StopHost();result=true;}
       else if(action=="close"){form.Close();result=true;}
       else throw new Exception("Ação de QA desconhecida.");

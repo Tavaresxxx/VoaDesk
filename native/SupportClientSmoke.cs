@@ -25,8 +25,8 @@ public static class SupportClientSmoke {
      deadline.Restart();while(form.LastCaptureTicket==null&&deadline.Elapsed.TotalSeconds<6)await Task.Delay(100);if(form.LastCaptureTicket==null)throw new Exception("No capture ticket.");
      code.Text="XXXX XXXX XXXX XXXX";
      using(var bitmap=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(bitmap,new Rectangle(0,0,bitmap.Width,bitmap.Height));bitmap.Save(a[1],System.Drawing.Imaging.ImageFormat.Png);}
-     form.Controls.OfType<Button>().First(b=>b.Text=="Encerrar / recusar atendimento").PerformClick();
-     await Task.Delay(500);if(form.ClientSize.Height>308||form.Controls.OfType<Button>().Any(b=>b.Visible&&b.Text.Contains("Permitir")))throw new Exception("Client did not return to compact mode.");
+     form.Controls.OfType<Button>().First(b=>(b.Text=="Encerrar atendimento"||b.Text=="Recusar acesso"||b.Text=="Encerrar / recusar atendimento")).PerformClick();
+     await Task.Delay(500);if(form.ClientSize.Height>VoaTheme.CompactHeight*form.CurrentAutoScaleDimensions.Width/96f+1||form.Controls.OfType<Button>().Any(b=>b.Visible&&b.Text.Contains("Permitir")))throw new Exception("Client did not return to compact mode.");
      var request=new JavaScriptSerializer().Deserialize<System.Collections.Generic.Dictionary<string,object>>(await response.Content.ReadAsStringAsync());
      http.DefaultRequestHeaders.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",Convert.ToString(request["token"]));
      var ended=await http.PostAsync(new Uri(new Uri(a[0]),"v3/operator/state"),new StringContent("{}",Encoding.UTF8,"application/json"));

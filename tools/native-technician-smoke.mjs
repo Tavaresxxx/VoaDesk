@@ -23,6 +23,12 @@ async function api(origin,path,value,token){const r=await fetch(origin+path,{met
 async function request(code){await evaluate(`document.getElementById('access-code').value=${JSON.stringify(code)};document.getElementById('access-form').requestSubmit();true`,true);await wait(`document.getElementById('waiting-title').textContent==='Aguardando o cliente aceitar'`);}
 try{
  const ready=await startShell();evidence.runtime=ready.version;await wait(`!document.getElementById('verify-code').disabled`);assert.equal((await rpc('state')).hostRunning,true);assert.equal((await rpc('state')).nodeWindow,0);if(process.env.VOADESK_QA_APP_ROOT){assert.equal(resolve((await rpc('state')).hostExecutable),resolve(process.env.VOADESK_QA_APP_ROOT,'runtime/node.exe'));evidence.portableNodeValidated=true;}
+ evidence.windowStates=[];
+ for(const state of ['Minimized','Maximized','Normal']){assert.equal(await rpc('window',{state}),state);evidence.windowStates.push(state);}
+ evidence.webViewScales=[];
+ await rpc('window',{state:'Normal',width:1000,height:760});
+ for(const factor of [1,1.25,1.5]){await rpc('zoom',{factor});await sleep(150);assert.equal(await evaluate(`document.documentElement.scrollWidth<=innerWidth`),true);await rpc('screenshot',{path:join(out,'inicio-escala-'+factor+'.png')});evidence.webViewScales.push(factor);}
+ await rpc('zoom',{factor:1});await rpc('window',{state:'Maximized'});
  const before=await rpc('state');await promisify(execFile)(resolve('dist/VoaDeskTecnico.exe'),[],{windowsHide:true,timeout:10000});await sleep(200);assert.equal((await rpc('state')).reveals,before.reveals+1);evidence.secondInstanceRevealedExistingWindow=true;
  assert.equal(await evaluate(`typeof window.showSaveFilePicker`),'function');evidence.savePickerApiAvailable=true;
  // The self-test must also work inside the shipped WebView2, then release the regular session UI.
@@ -73,7 +79,7 @@ try{
  });
  evidence.videoDiagnostics=await evaluate(`document.getElementById('diagnostic-details').innerText`);
  // Fullscreen is entered via a user-gesture equivalent in this isolated in-process QA driver.
- if(!(await rpc('state')).full)await evaluate(`document.getElementById('full-session').click();true`,true);await sleep(200);assert.equal((await rpc('state')).full,true);evidence.nativeFullscreen=true;
+ await rpc('activate');await sleep(200);if(!(await rpc('state')).full)await evaluate(`document.getElementById('full-session').click();true`,true);await sleep(200);assert.equal((await rpc('state')).full,true);evidence.nativeFullscreen=true;
  await wait(`!document.getElementById('session-monitor').disabled`);const monitors=await evaluate(`document.getElementById('session-monitor').options.length`);for(let i=0;i<monitors;i++){await evaluate(`document.getElementById('session-monitor').selectedIndex=${i};document.getElementById('session-monitor').dispatchEvent(new Event('change'));true`);await wait(`!document.getElementById('session-monitor').disabled`);await wait(`document.getElementById('quality-notice').textContent.includes('Monitor conectado')`);}evidence.monitorsSelected=monitors;
  await evaluate(`document.getElementById('remote-keyboard').focus();true`);await cdp('Input.insertText',{text:'Ação ç'});await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'Control',code:'ControlLeft',windowsVirtualKeyCode:17});await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'Control',code:'ControlLeft',windowsVirtualKeyCode:17});for(let at=0;at<30&&!events.some(e=>e.type===1&&e.flags===4&&e.scan===231);at++)await sleep(100);assert.ok(events.some(e=>e.type===1&&e.flags===4&&e.scan===231));evidence.unicodeToNativeCollector=true;
  await evaluate(`document.getElementById('session-zoom').value='150';document.getElementById('session-zoom').dispatchEvent(new Event('change'));true`);assert.equal(await evaluate(`document.getElementById('remote-video').style.width`),'1920px');await evaluate(`document.getElementById('session-zoom').value='fit';document.getElementById('session-zoom').dispatchEvent(new Event('change'));true`);

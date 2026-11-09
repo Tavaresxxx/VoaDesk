@@ -41,6 +41,7 @@ try{
  await audit(page,'clientes salvos');await page.screenshot({path:join(out,'clientes.png'),mask:[page.locator('.client-text small')]});
  await page.locator('#client-search').fill('não encontrado');assert.equal(await page.locator('.client-item').count(),0);assert.equal(await page.locator('#saved-status').isVisible(),true);
  await page.locator('#client-search').fill('equipe');assert.equal(await page.locator('.client-item').count(),1);await page.locator('#client-search').fill('');evidence.clientSearchValidated=true;
+ await page.locator('.nav-item[data-page=history]').click();await page.waitForFunction(()=>!document.getElementById('refresh-history').disabled);await audit(page,'histórico vazio');assert.match(await page.locator('#history-status').textContent(),/Nenhuma atividade/);await page.screenshot({path:join(out,'historico.png')});
  await page.locator('.nav-item[data-page=help]').click();await audit(page,'ajuda e diagnóstico');await page.screenshot({path:join(out,'ajuda.png'),fullPage:true});
  await page.locator('.nav-item[data-page=home]').click();
  const client=await(await fetch(service.origin+'/v2/clients',{method:'POST',body:JSON.stringify({deviceId:randomBytes(16).toString('hex'),secret:randomBytes(32).toString('base64url')})})).json();

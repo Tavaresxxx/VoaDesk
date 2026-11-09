@@ -98,3 +98,9 @@ O serviço público continua executando `src/start.mjs` com `VOADESK_MODE=pairin
 O repositório mantém código, testes, scripts e documentação. Pacotes, caches, evidências locais, perfis, identidades, históricos e credenciais permanecem fora dele. Documentos de versões anteriores preservam decisões históricas e não substituem este README.
 
 Código próprio: MIT. Node.js acompanha sua licença e avisos. O SDK WebView2 acompanha LICENSE/NOTICE; o runtime Evergreen e Windows têm seus próprios termos. Não há conclusão sobre licenciamento comercial de patentes H.264 ou assinatura Authenticode dos executáveis do projeto.
+
+## Interface de atendimento
+
+A interface foi revisada com fundo branco, navegação compacta, início separado entre iniciar e receber atendimento, histórico local e ferramentas de sessão agrupadas. A tela cheia é uma ação explícita. O cliente nativo oferece Copiar código e Reconectar visíveis, com estados de consentimento e encerramento.
+
+Consulte [mapa dos controles, validações e limites](docs/interface-windows.md). Os testes de escala WebView2 e de layout WinForms não equivalem à troca do DPI do Windows em monitores reais.
