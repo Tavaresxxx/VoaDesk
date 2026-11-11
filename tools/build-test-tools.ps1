@@ -28,3 +28,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar fixture da ponte nativa.' }
 
 & $compiler /nologo /target:exe /platform:x64 /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll ('/reference:'+(Join-Path $projectRoot 'dist\Microsoft.Web.WebView2.Core.dll')) ('/reference:'+(Join-Path $projectRoot 'dist\Microsoft.Web.WebView2.WinForms.dll')) ('/reference:'+(Join-Path $projectRoot 'dist\VoaDesk.exe')) ('/out:'+(Join-Path $cache 'TechnicianFixture.exe')) (Join-Path $projectRoot 'native\TechnicianFixture.cs')
 if($LASTEXITCODE -ne 0){throw 'Falha ao compilar fixture da janela do tecnico.'}
+
+& $compiler /nologo /target:exe /platform:x64 /optimize+ /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Net.Http.dll /reference:System.Web.Extensions.dll ('/reference:' + (Join-Path $projectRoot 'dist\VoaDeskCliente.exe')) ('/out:' + (Join-Path $cache 'SignalDelaySmoke.exe')) (Join-Path $projectRoot 'native\SignalDelaySmoke.cs')
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao compilar teste de atraso da sinalizacao.' }

@@ -4,6 +4,7 @@ import { readJson, RequestError } from '../http-guards.mjs';
 import { createHash } from 'node:crypto';
 import {brandSvg} from '../brand.mjs';
 export function sessionRouter(hub, { root, isOperator, enabled, allow = () => true }) {
+  const streams = new Map();
   const budget = token => { if(!allow('session:'+createHash('sha256').update(token).digest('hex')))throw new RequestError(429,'RATE_LIMIT'); };
   const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
   return async(req,res,path,bearer)=>{
@@ -43,7 +44,7 @@ export function sessionRouter(hub, { root, isOperator, enabled, allow = () => tr
           if(!Array.isArray(events)||events.length<1||events.length>8||events.some(e=>!e||(e.type!=='release'&&e.permissionRevision!==s.permissionRevision)))throw new Error('INVALID');
           try{for(const event of events)hub.input(s,event);}catch(error){if(payload.events!==undefined)hub.end(s,'invalid-input');throw error;}
         }
-        else if(path==='/support/stats'){s.stats={};for(const field of ['captureMs','jpegEncodeMs','captureBridgeMs','canvasRenderMs','inputQueueMs','pointerReplaced','capturedFps','encodedFps','encodeMs','bitrateMbps','width','height','rttMs','qualityLimitation','encoder','powerEfficientEncoder']){const v=payload[field];if(typeof v==='number'&&Number.isFinite(v)||typeof v==='boolean'||typeof v==='string'&&v.length<100)s.stats[field]=v;}if(s.state==='approved')s.state='active';}
+        else if(path==='/support/stats'){s.stats={};for(const field of ['captureP50Ms','captureP95Ms','captureMs','jpegEncodeMs','captureBridgeMs','canvasRenderMs','inputQueueMs','pointerReplaced','capturedFps','encodedFps','encodeMs','bitrateMbps','width','height','rttMs','qualityLimitation','encoder','powerEfficientEncoder']){const v=payload[field];if(typeof v==='number'&&Number.isFinite(v)||typeof v==='boolean'||typeof v==='string'&&v.length<100)s.stats[field]=v;}if(s.state==='approved')s.state='active';}
         else throw new Error('INVALID');
         json(res,200,{ok:true});return true;
       }
@@ -52,12 +53,32 @@ export function sessionRouter(hub, { root, isOperator, enabled, allow = () => tr
       else if(path.startsWith('/v3/client/')){if(!hub.owner(bearer))throw new Error('DENIED');}
       else hub.technician(bearer);
       if(!['/v3/client/decision','/v3/operator/end'].includes(path))budget(bearer);
+      if(req.method==='GET'&&path==='/v3/client/events'){
+        const streamKey=createHash('sha256').update(bearer).digest('hex');
+        if(streams.has(streamKey)||streams.size>=128)throw new RequestError(409,'STREAM_BUSY');
+        res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store, no-transform','X-Accel-Buffering':'no','X-Content-Type-Options':'nosniff'});
+        res.flushHeaders();
+        let closed=false,sending=false;
+        const cleanup=()=>{if(closed)return;closed=true;clearInterval(timer);hub.changes.removeListener('state',send);streams.delete(streamKey);res.end();};
+        const send=()=>{
+          if(closed||sending)return;sending=true;
+          try{
+            // Recheck ownership and leases for every heartbeat, not just at connect.
+            if(!hub.owner(bearer))return cleanup();
+            const state={...hub.commands(bearer),heartbeatAt:Date.now()};
+            if(res.writableLength>65536)return cleanup();
+            res.write('data: '+JSON.stringify(state)+'\n\n');
+          }catch{cleanup();}finally{sending=false;}
+        };
+        const timer=setInterval(send,500);timer.unref();streams.set(streamKey,cleanup);
+        hub.changes.on('state',send);res.once('close',cleanup);send();return true;
+      }
       if(req.method==='GET'&&path==='/v3/client/state'){const s=hub.client(bearer);json(res,200,s?hub.public(s):{state:'idle'});return true;}
       if(req.method==='GET'&&path==='/v3/client/commands'){json(res,200,hub.commands(bearer));return true;}
       if(req.method!=='POST')throw new Error('INVALID');
       const payload=await readJson(req,res,path==='/v3/operator/signal'?110000:2048);
       if(path==='/v3/client/decision'&&!['end','deny'].includes(payload.permission))budget(bearer);
-      if(path==='/v3/operator/request'){if(!isOperator(bearer))throw new Error('DENIED');json(res,201,hub.request(payload.code));return true;}
+      if(path==='/v3/operator/request'){if(!isOperator(bearer))throw new Error('DENIED');json(res,201,hub.request(payload.code,createHash('sha256').update(bearer+':'+String(req.headers['x-voadesk-operator-seat']??'default').slice(0,64)).digest('hex')));return true;}
       if(path==='/v3/client/decision'){json(res,200,hub.decide(bearer,payload.id,payload.permission));return true;}
       const s=hub.technician(bearer);
       if(path==='/v3/operator/state')json(res,200,hub.public(s));

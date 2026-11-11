@@ -1,4 +1,5 @@
 export const PROFILES = Object.freeze({
+  economy: Object.freeze({ label: 'Econômico', bitrate: 2500000, fps: 30, maxHeight: 720, hint: 'detail', degradation: 'balanced' }),
   quality: Object.freeze({ label: 'Qualidade', bitrate: 16000000, fps: 30, maxHeight: null, hint: 'detail', degradation: 'maintain-resolution' }),
   balanced: Object.freeze({ label: 'Equilibrado', bitrate: 8000000, fps: 60, maxHeight: null, hint: 'detail', degradation: 'balanced' }),
   smooth: Object.freeze({ label: 'Fluidez', bitrate: 5000000, fps: 60, maxHeight: 1080, hint: 'motion', degradation: 'maintain-framerate' })

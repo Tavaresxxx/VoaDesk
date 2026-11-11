@@ -16,11 +16,16 @@ const proxy = http.createServer((req, res) => {
   if (req.url === '/__test/arm') { armed = true; res.end('ok'); return; }
   if (req.url === '/__test/held') { res.end(String(Boolean(held))); return; }
   if (req.url === '/__test/release') {
-    assert.ok(held); held.res.writeHead(200, { 'Content-Type': 'application/json' }); held.res.end(held.body); held = null; tested = true; res.end('ok'); return;
+    assert.ok(held);if(held.streaming)held.res.write('data: '+held.body+'\n\n');else{held.res.writeHead(200, { 'Content-Type': 'application/json' }); held.res.end(held.body);} held = null; tested = true; res.end('ok'); return;
   }
   const headers = { ...req.headers, host: new URL(service.origin).host };
   if (headers.origin) headers.origin = service.origin;
   const upstream = http.request(service.origin + req.url, { method: req.method, headers }, response => {
+    if(req.url==='/v3/client/events'){
+      res.writeHead(response.statusCode,response.headers);res.flushHeaders();let buffer='';
+      response.on('data',chunk=>{buffer+=chunk;let index;while((index=buffer.indexOf('\n\n'))>=0){const frame=buffer.slice(0,index);buffer=buffer.slice(index+2);if(held?.res===res)continue;if(armed&&frame.startsWith('data: ')){const state=JSON.parse(frame.slice(6));if(state.permission==='control'){armed=false;state.commands=[{type:'keyDown',code:'KeyZ'}];held={res,body:JSON.stringify(state),streaming:true};continue;}}res.write(frame+'\n\n');}});
+      response.on('end',()=>res.end());res.on('close',()=>upstream.destroy());return;
+    }
     if (req.url === '/v3/client/commands') {
       let body = ''; response.on('data', c => { body += c; }); response.on('end', () => {
         if (armed) {

@@ -23,6 +23,8 @@ public sealed class DesktopBridge : IDisposable {
  readonly System.Threading.SemaphoreSlim captureGate=new System.Threading.SemaphoreSlim(1,1);
  static readonly ImageCodecInfo jpegCodec=ImageCodecInfo.GetImageEncoders().First(c=>c.FormatID==ImageFormat.Jpeg.Guid);
  double captureMs,jpegEncodeMs;
+ Bitmap captureBitmap,scaledBitmap;Graphics captureGraphics,scaledGraphics;
+ readonly MemoryStream jpegMemory=new MemoryStream();readonly EncoderParameters jpegParameters=new EncoderParameters(1);
  readonly object gate=new object(); readonly Dictionary<string,Transfer> transfers=new Dictionary<string,Transfer>();
  string selected=Screen.PrimaryScreen.DeviceName; long generation=0;int activeRequests=0;bool disposed,booted; public readonly string Origin;
  public string BootstrapUrl {get{return Origin+"/bootstrap?key="+secret;}}
@@ -50,29 +52,35 @@ public sealed class DesktopBridge : IDisposable {
  bool Authorized(){if(disposed||owner.IsDisposed)return false;try{return (bool)owner.Invoke(new Func<bool>(allowed));}catch{return false;}}
  async Task Accept(){while(!disposed)try{var client=await listener.AcceptTcpClientAsync();if(System.Threading.Interlocked.Increment(ref activeRequests)>24){System.Threading.Interlocked.Decrement(ref activeRequests);client.Close();continue;}var work=Handle(client).ContinueWith(t=>{System.Threading.Interlocked.Decrement(ref activeRequests);if(t.IsFaulted){var ignored=t.Exception;}});}catch{if(disposed)return;}}
  static string Header(Dictionary<string,string> headers,string name){string v;return headers.TryGetValue(name,out v)?v:"";}
- async Task Handle(TcpClient client){using(client)using(var deadline=new System.Threading.Timer(delegate{try{client.Close();}catch{}},null,10000,System.Threading.Timeout.Infinite)){client.NoDelay=true;client.ReceiveTimeout=5000;client.SendTimeout=5000;var stream=client.GetStream();bool failed=false;string failure="Acesso encerrado ou solicitação inválida.";try{
+ async Task Handle(TcpClient client){using(client){client.NoDelay=true;client.ReceiveTimeout=5000;client.SendTimeout=5000;
+  for(int count=0;count<100&&!disposed;count++)using(var deadline=new System.Threading.Timer(delegate{try{client.Close();}catch{}},null,10000,System.Threading.Timeout.Infinite)){
+   if(!await HandleRequest(client.GetStream()))break;
+  }
+ }}
+ async Task<bool> HandleRequest(Stream stream){bool failed=false;int failureStatus=403;string failure="Acesso encerrado ou solicitação inválida.";try{
   // Bound parsing independently of file size; file bodies are always chunks <= 64 KiB.
   var header=new byte[16384];int used=0,headerEnd=-1;
-  while(used<header.Length&&headerEnd<0){int previous=used;int n=await stream.ReadAsync(header,used,header.Length-used);if(n==0)return;used+=n;for(int i=Math.Max(0,previous-3);i<=used-4;i++)if(header[i]==13&&header[i+1]==10&&header[i+2]==13&&header[i+3]==10){headerEnd=i+4;break;}}
+  while(used<header.Length&&headerEnd<0){int previous=used;int n=await stream.ReadAsync(header,used,header.Length-used);if(n==0)return false;used+=n;for(int i=Math.Max(0,previous-3);i<=used-4;i++)if(header[i]==13&&header[i+1]==10&&header[i+2]==13&&header[i+3]==10){headerEnd=i+4;break;}}
   if(headerEnd<0)throw new Exception();
   string[] lines=Encoding.ASCII.GetString(header,0,headerEnd).Split(new[]{"\r\n"},StringSplitOptions.None);var first=lines[0].Split(' ');if(first.Length!=3)throw new Exception();string method=first[0];var url=new Uri(new Uri(Origin),first[1]);var headers=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);foreach(string line in lines.Skip(1)){int i=line.IndexOf(':');if(i>0)headers.Add(line.Substring(0,i),line.Substring(i+1).Trim());}
   if(Header(headers,"Host")!=new Uri(Origin).Authority||url.Authority!=new Uri(Origin).Authority)throw new Exception();
   int length=0;string size=Header(headers,"Content-Length");if(size!=""&&(!Int32.TryParse(size,out length)||length<0||length>131072))throw new Exception();if(Header(headers,"Transfer-Encoding")!="")throw new Exception();
   var body=new byte[length];int at=used-headerEnd;if(at>length)throw new Exception();Buffer.BlockCopy(header,headerEnd,body,0,at);while(at<length){int n=await stream.ReadAsync(body,at,length-at);if(n==0)throw new Exception();at+=n;}
   if(!Authorized())throw new Exception();
-  if(url.AbsolutePath=="/bootstrap"&&method=="GET"&&!booted&&url.Query=="?key="+secret){booted=true;await Reply(stream,303,new byte[0],"text/plain","Location: /support/\r\nSet-Cookie: voadesk_native="+secret+"; HttpOnly; SameSite=Strict; Path=/\r\n");return;}
+  if(url.AbsolutePath=="/bootstrap"&&method=="GET"&&!booted&&url.Query=="?key="+secret){booted=true;await Reply(stream,303,new byte[0],"text/plain","Location: /support/\r\nSet-Cookie: voadesk_native="+secret+"; HttpOnly; SameSite=Strict; Path=/\r\n");return true;}
   if(!Header(headers,"Cookie").Split(';').Any(c=>c.Trim()=="voadesk_native="+secret))throw new Exception();
   if(method=="POST"&&(Header(headers,"Origin")!=Origin||Header(headers,"X-VoaDesk")!="1"))throw new Exception();
   if(method!="GET"&&method!="POST")throw new Exception();
-  string[] asset;if(method=="GET"&&Assets.TryGetValue(url.AbsolutePath,out asset)){using(var resource=typeof(DesktopBridge).Assembly.GetManifestResourceStream(asset[0]))using(var content=new MemoryStream()){if(resource==null)throw new InvalidOperationException("Recompile o cliente com os arquivos de captura.");resource.CopyTo(content);await Reply(stream,200,content.ToArray(),asset[1]);}return;}
-  if(url.AbsolutePath.StartsWith("/support/native/")){await Native(stream,method,url,body);return;}
+  string[] asset;if(method=="GET"&&Assets.TryGetValue(url.AbsolutePath,out asset)){using(var resource=typeof(DesktopBridge).Assembly.GetManifestResourceStream(asset[0]))using(var content=new MemoryStream()){if(resource==null)throw new InvalidOperationException("Recompile o cliente com os arquivos de captura.");resource.CopyTo(content);await Reply(stream,200,content.ToArray(),asset[1]);}return true;}
+  if(url.AbsolutePath.StartsWith("/support/native/")){await Native(stream,method,url,body);return true;}
   if(url.AbsolutePath=="/support/input"&&method=="POST"){
    var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(body));var events=data.ContainsKey("events")?data["events"] as System.Collections.IEnumerable:new object[]{data};if(events==null)throw new Exception();
-   owner.Invoke(new Action(delegate{if(!allowed())return;int count=0;foreach(var raw in events){if(++count>8)throw new Exception();var e=(Dictionary<string,object>)raw;ValidateInput(e);if(Convert.ToString(e["type"])!="release"&&(!e.ContainsKey("monitorId")||Convert.ToString(e["monitorId"])!=selected||!e.ContainsKey("monitorGeneration")||Convert.ToInt64(e["monitorGeneration"])!=generation))continue;input(e);}}));await Json(stream,new{ok=true});return;
+   owner.Invoke(new Action(delegate{if(!allowed())return;int count=0;foreach(var raw in events){if(++count>8)throw new Exception();var e=(Dictionary<string,object>)raw;ValidateInput(e);if(Convert.ToString(e["type"])!="release"&&(!e.ContainsKey("monitorId")||Convert.ToString(e["monitorId"])!=selected||!e.ContainsKey("monitorGeneration")||Convert.ToInt64(e["monitorGeneration"])!=generation))continue;input(e);}}));await Json(stream,new{ok=true});return true;
   }
   if(!new[]{"/support/state","/support/signal","/support/stats","/support/end"}.Contains(url.AbsolutePath))throw new Exception();
   using(var req=new HttpRequestMessage(new HttpMethod(method),new Uri(endpoint,url.PathAndQuery))){if(method=="POST"){req.Headers.Add("Origin",endpoint.GetLeftPart(UriPartial.Authority));req.Headers.Add("X-VoaDesk","1");req.Content=new ByteArrayContent(body);req.Content.Headers.ContentType=new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");}using(var r=await upstream.SendAsync(req)){var result=await r.Content.ReadAsByteArrayAsync();await Reply(stream,(int)r.StatusCode,result,r.Content.Headers.ContentType==null?"text/plain":r.Content.Headers.ContentType.ToString());}}
- }catch(Exception error){failed=true;if(error is UnauthorizedAccessException)failure="Sem permissão para acessar o arquivo ou a pasta.";else if(error is IOException)failure=error.Message=="O arquivo de destino já existe."?error.Message:"Não foi possível acessar ou gravar o arquivo. Confira o caminho e o espaço livre.";}if(failed){try{await Reply(stream,403,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new{message=failure})),"application/json; charset=utf-8");}catch{}}}}
+ return true;
+ }catch(Exception error){failed=true;if(error is HttpRequestException||error is TaskCanceledException){failureStatus=503;failure="Sinalizacao temporariamente indisponivel.";}else if(error is UnauthorizedAccessException)failure="Sem permissão para acessar o arquivo ou a pasta.";else if(error is IOException)failure=error.Message=="O arquivo de destino já existe."?error.Message:"Não foi possível acessar ou gravar o arquivo. Confira o caminho e o espaço livre.";}if(failed){try{await Reply(stream,failureStatus,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new{message=failure})),"application/json; charset=utf-8");}catch{}}return false;}
  async Task Native(Stream output,string method,Uri url,byte[] body){var json=new JavaScriptSerializer();var data=body.Length==0?new Dictionary<string,object>():url.AbsolutePath.EndsWith("/write")?null:json.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(body));string route=url.AbsolutePath.Substring("/support/native/".Length);
   if(route=="state"&&method=="GET"){await Json(output,new{native=true,selected=selected,generation=generation,monitors=Screen.AllScreens.Select((s,i)=>new{id=s.DeviceName,label="Monitor "+(i+1)+(s.Primary?" · principal":""),width=s.Bounds.Width,height=s.Bounds.Height}).ToArray(),sas=false});return;}
   if(route=="select"&&method=="POST"){string id=Convert.ToString(data["id"]);var screen=Screen.AllScreens.FirstOrDefault(s=>s.DeviceName==id);if(screen==null)throw new Exception();owner.Invoke(new Action(delegate{if(!allowed())throw new Exception();input(new Dictionary<string,object>{{"type","release"}});target(screen.Bounds);selected=id;generation++;}));await Json(output,new{selected=selected,generation=generation});return;}
@@ -84,11 +92,14 @@ public sealed class DesktopBridge : IDisposable {
    var bounds=screen.Bounds;
    long frameGeneration=generation;
    if(!await captureGate.WaitAsync(0)){await Reply(output,429,new byte[0],"text/plain");return;}
+   ArraySegment<byte> jpeg;string timing;
    try{
-    byte[] jpeg=await Task.Run(()=>CaptureJpeg(bounds,maxHeight));
-    if(!Authorized()||generation!=frameGeneration)throw new Exception();
-    string timing="X-VoaDesk-captureMs: "+captureMs.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\r\nX-VoaDesk-jpegEncodeMs: "+jpegEncodeMs.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\r\n";
-    await Reply(output,200,jpeg,"image/jpeg",timing);return;
+    jpeg=await Task.Run(()=>CaptureJpeg(bounds,maxHeight));
+    timing="X-VoaDesk-captureMs: "+captureMs.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\r\nX-VoaDesk-jpegEncodeMs: "+jpegEncodeMs.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\r\n";
+   
+   if(!Authorized())throw new Exception();
+   if(generation!=frameGeneration){await Reply(output,409,new byte[0],"text/plain");return;}
+   await Reply(output,200,jpeg.Array,"image/jpeg",timing,jpeg.Count);return;
    }finally{captureGate.Release();}
   }
   if(route=="shortcut"&&method=="POST"){string action=Convert.ToString(data["action"]);if(action!="task-manager")throw new Exception();owner.Invoke(new Action(delegate{if(!allowed())throw new Exception();Process.Start(new ProcessStartInfo("taskmgr.exe"){UseShellExecute=true});}));await Json(output,new{ok=true});return;}
@@ -115,30 +126,41 @@ public sealed class DesktopBridge : IDisposable {
   }
   throw new Exception();
  }
- byte[] CaptureJpeg(Rectangle bounds,int maxHeight){
-  var timer=Stopwatch.StartNew();
-  using(var bitmap=capture==null?new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format24bppRgb):capture(bounds))
-  using(var memory=new MemoryStream())
-  using(var parameters=new EncoderParameters(1)){
-   if(capture==null)using(var graphics=Graphics.FromImage(bitmap))
-    graphics.CopyFromScreen(bounds.Location,Point.Empty,bounds.Size,CopyPixelOperation.SourceCopy);
+ void DisposeCaptureBuffers(){
+  if(captureGraphics!=null)captureGraphics.Dispose();if(captureBitmap!=null)captureBitmap.Dispose();
+  if(scaledGraphics!=null)scaledGraphics.Dispose();if(scaledBitmap!=null)scaledBitmap.Dispose();
+  captureGraphics=scaledGraphics=null;captureBitmap=scaledBitmap=null;
+ }
+ ArraySegment<byte> CaptureJpeg(Rectangle bounds,int maxHeight){
+  if(disposed)throw new ObjectDisposedException("DesktopBridge");
+  var timer=Stopwatch.StartNew();Bitmap temporary=null;
+  try{
+   Bitmap bitmap;
+   if(capture==null){
+    if(captureBitmap==null||captureBitmap.Size!=bounds.Size){DisposeCaptureBuffers();captureBitmap=new Bitmap(bounds.Width,bounds.Height,PixelFormat.Format24bppRgb);captureGraphics=Graphics.FromImage(captureBitmap);}
+    captureGraphics.CopyFromScreen(bounds.Location,Point.Empty,bounds.Size,CopyPixelOperation.SourceCopy);bitmap=captureBitmap;
+   }else bitmap=temporary=capture(bounds);
    captureMs=timer.Elapsed.TotalMilliseconds;timer.Restart();
-   parameters.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
+   if(jpegParameters.Param[0]==null)jpegParameters.Param[0]=new EncoderParameter(System.Drawing.Imaging.Encoder.Quality,85L);
+   jpegMemory.Position=0;jpegMemory.SetLength(0);
    if(bitmap.Height>maxHeight){
     int width=Math.Max(1,(int)Math.Round(bitmap.Width*(double)maxHeight/bitmap.Height));
-    using(var scaled=new Bitmap(width,maxHeight,PixelFormat.Format24bppRgb)){
-     using(var graphics=Graphics.FromImage(scaled))graphics.DrawImage(bitmap,0,0,width,maxHeight);
-     scaled.Save(memory,jpegCodec,parameters);
+    if(scaledBitmap==null||scaledBitmap.Width!=width||scaledBitmap.Height!=maxHeight){
+     if(scaledGraphics!=null)scaledGraphics.Dispose();if(scaledBitmap!=null)scaledBitmap.Dispose();
+     scaledBitmap=new Bitmap(width,maxHeight,PixelFormat.Format24bppRgb);scaledGraphics=Graphics.FromImage(scaledBitmap);
     }
-   }else bitmap.Save(memory,jpegCodec,parameters);
+    scaledGraphics.DrawImage(bitmap,0,0,width,maxHeight);scaledBitmap.Save(jpegMemory,jpegCodec,jpegParameters);
+   }else bitmap.Save(jpegMemory,jpegCodec,jpegParameters);
    jpegEncodeMs=timer.Elapsed.TotalMilliseconds;
-   return memory.ToArray();
-  }
+   // The capture gate owns this buffer until the response has finished writing.
+   return new ArraySegment<byte>(jpegMemory.GetBuffer(),0,checked((int)jpegMemory.Length));
+  }finally{if(temporary!=null)temporary.Dispose();}
  }
  static void ValidateInput(Dictionary<string,object> e){string type=Convert.ToString(e["type"]);if(!new[]{"release","move","down","up","wheel","text","keyDown","keyUp","guide"}.Contains(type))throw new Exception();if(new[]{"move","down","up","guide"}.Contains(type)){double x=Convert.ToDouble(e["x"]),y=Convert.ToDouble(e["y"]);if(Double.IsNaN(x)||Double.IsNaN(y)||x<0||x>1||y<0||y>1)throw new Exception();}if(type=="down"||type=="up"){int b=Convert.ToInt32(e["button"]);if(b<0||b>2)throw new Exception();}if(type=="text"&&Convert.ToString(e["text"]).Length>64)throw new Exception();if(type=="wheel"){double delta=Convert.ToDouble(e["delta"]);if(Double.IsNaN(delta)||Math.Abs(delta)>1200)throw new Exception();}}
  static Task Json(Stream stream,object value){return Reply(stream,200,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(value)),"application/json");}
- static async Task Reply(Stream stream,int status,byte[] body,string type,string extra=""){
-  string head="HTTP/1.1 "+status+" Result\r\nContent-Type: "+type+"\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n"+extra+"\r\n";var bytes=Encoding.ASCII.GetBytes(head);await stream.WriteAsync(bytes,0,bytes.Length);await stream.WriteAsync(body,0,body.Length);
+ static async Task Reply(Stream stream,int status,byte[] body,string type,string extra="",int count=-1){
+  if(count<0)count=body.Length;
+  string head="HTTP/1.1 "+status+" Result\r\nContent-Type: "+type+"\r\nContent-Length: "+count+"\r\nConnection: keep-alive\r\nKeep-Alive: timeout=10, max=100\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'\r\n"+extra+"\r\n";var bytes=Encoding.ASCII.GetBytes(head);await stream.WriteAsync(bytes,0,bytes.Length);await stream.WriteAsync(body,0,count);
  }
- public void Dispose(){if(disposed)return;disposed=true;listener.Stop();upstream.Dispose();lock(gate){foreach(var t in transfers.Values){t.Stream.Dispose();if(t.Partial!=null)try{File.Delete(t.Partial);}catch{}}transfers.Clear();}}
+ public void Dispose(){if(disposed)return;disposed=true;listener.Stop();upstream.Dispose();Task.Run(async()=>{await captureGate.WaitAsync();try{DisposeCaptureBuffers();jpegMemory.Dispose();jpegParameters.Dispose();}finally{captureGate.Release();}});lock(gate){foreach(var t in transfers.Values){t.Stream.Dispose();if(t.Partial!=null)try{File.Delete(t.Partial);}catch{}}transfers.Clear();}}
 }

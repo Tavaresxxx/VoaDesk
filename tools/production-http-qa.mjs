@@ -15,6 +15,13 @@ const api=async(path,payload,bearer,headers={})=>{
   return {status:res.status,headers:res.headers,data,elapsedMs:performance.now()-start};
 };
 const check=(name,value)=>{assert.ok(value,name);evidence.checks.push({name,result:'passed'});};
+const eventState=async bearer=>{
+  const response=await fetch(origin+'/v3/client/events',{headers:{Authorization:'Bearer '+bearer},signal:AbortSignal.timeout(10000)});
+  assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/event-stream/);
+  const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
+  try{while(buffer.length<65536){const result=await reader.read();if(result.done)throw new Error('Fluxo encerrado antes do estado');buffer+=decoder.decode(result.value,{stream:true});const end=buffer.indexOf('\n\n');if(end>=0)return JSON.parse(buffer.slice(6,end));}throw new Error('Estado excedido');}
+  finally{await reader.cancel().catch(()=>{});}
+};
 try{
   const health=await api('/health');check('HTTPS responde 200 e versão '+expectedVersion,health.status===200&&health.data.version===expectedVersion);
   if(expectedCommit)check('Revisão publicada corresponde ao commit esperado',health.data.release===expectedCommit);
@@ -30,6 +37,7 @@ try{
   check('Verificação sem operador recusada',(await api('/v2/codes/verify',{code:client.code})).status===401);
   check('Operador identifica presença',(await api('/v2/codes/verify',{code:client.code},token)).status===200);
   const requested=await api('/v3/operator/request',{code:client.code},token);check('Atendimento aguarda consentimento',requested.status===201&&requested.data.state==='pending'&&requested.data.permission==='none');sessionToken=requested.data.token;
+  const pendingEvent=await eventState(client.token);check('SSE autenticado entrega estado pendente sem conceder acesso',pendingEvent.state==='pending'&&pendingEvent.permission==='none'&&pendingEvent.id===requested.data.id&&Number.isFinite(pendingEvent.heartbeatAt));
   check('Troca de papéis recusada',(await api('/v3/client/decision',{id:requested.data.id,permission:'control'},sessionToken)).status===403);
   check('Sinalização antes de consentimento recusada',(await api('/v3/operator/signal',{type:'answer',sdp:'invalid'},sessionToken)).status===403);
   const approved=await api('/v3/client/decision',{id:requested.data.id,permission:'view'},client.token);check('Somente o cliente aprova visualização',approved.status===200&&approved.data.state==='approved');

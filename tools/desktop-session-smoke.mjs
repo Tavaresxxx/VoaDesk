@@ -6,6 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {randomBytes,createHash} from 'node:crypto';
+import http from 'node:http';
 import {createHost} from '../src/host/server.mjs';
 import {createPairingService} from '../src/pairing/service.mjs';
 import {DeviceRegistry} from '../src/pairing/devices.mjs';
@@ -21,6 +22,7 @@ try{
  const {chromium}=await import(pathToFileURL(resolve(process.env.FAROL_PLAYWRIGHT||'.cache/security-tools/node_modules/playwright/index.mjs')).href);
  browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--disable-features=WebRtcHideLocalIpsWithMdns','--autoplay-policy=no-user-gesture-required']});
  tech=await browser.newPage({viewport:{width:1600,height:1000}});tech.on('pageerror',e=>errors.push(e.message));
+ await tech.addInitScript(()=>{const Original=window.RTCPeerConnection;window.RTCPeerConnection=class extends Original{constructor(...args){super(...args);window.testPeer=this;}};});
  const device=await post('/v2/clients',{deviceId:randomBytes(16).toString('hex'),secret:randomBytes(32).toString('base64url')},'');
  await tech.goto(host.bootstrapUrl);await tech.waitForFunction(()=>!document.getElementById('verify-code').disabled);await tech.locator('#access-code').fill(device.code);await tech.locator('#verify-code').click();
  await tech.waitForFunction(()=>!document.getElementById('session-panel').hidden);
@@ -32,16 +34,44 @@ try{
   child.once('error',e=>{clearTimeout(timeout);fail(e);});child.once('exit',code=>{if(code!==0)fail(new Error('Native fixture exited: '+code));});
   createInterface({input:child.stdout}).on('line',line=>{try{const data=JSON.parse(line);if(data.kind==='ready'){clearTimeout(timeout);ok(data.url);}else if(data.kind==='input')inputs.push(data);}catch{}});
  });
- capture=await browser.newPage();capture.on('response',r=>requests.push({path:new URL(r.url()).pathname,status:r.status()}));capture.on('requestfailed',r=>requests.push({path:new URL(r.url()).pathname,failure:r.failure()}));capture.on('pageerror',e=>errors.push(e.message));const url=await ready;nativeOrigin=new URL(url).origin;await capture.goto(url);
+ capture=await browser.newPage();
+ await capture.addInitScript(()=>{const original=RTCRtpSender.prototype.setParameters;RTCRtpSender.prototype.setParameters=function(...args){if(window.rejectQuality){window.rejectQuality=false;window.qualityRejected=true;return Promise.reject(new DOMException('Injected encoder failure','OperationError'));}return original.apply(this,args);};});
+ for(const page of [tech,capture])await page.addInitScript(()=>{const Original=window.RTCPeerConnection;window.RTCPeerConnection=class extends Original{constructor(...args){super(...args);window.testPeer=this;}};});
+ capture.on('response',r=>requests.push({path:new URL(r.url()).pathname,status:r.status()}));capture.on('requestfailed',r=>requests.push({path:new URL(r.url()).pathname,failure:r.failure()}));capture.on('pageerror',e=>errors.push(e.message));const url=await ready;nativeOrigin=new URL(url).origin;await capture.goto(url);
  await tech.waitForFunction(()=>document.getElementById('remote-video').videoWidth===1280,null,{timeout:30000});
  await tech.waitForFunction(()=>!document.getElementById('session-monitor').disabled&&!document.getElementById('session-files').disabled);
- assert.equal(await capture.locator('#share').isVisible(),false);assert.equal(await tech.evaluate(()=>Boolean(document.fullscreenElement)),true);
+ const bridgeCookie=(await capture.context().cookies(nativeOrigin)).map(c=>c.name+'='+c.value).join(';'),agent=new http.Agent({keepAlive:true,maxSockets:1});let reused=0;
+ try{for(let i=0;i<6;i++)await new Promise((ok,fail)=>{const request=http.get(nativeOrigin+'/support/native/state',{agent,headers:{Cookie:bridgeCookie}},response=>{assert.equal(response.statusCode,200);response.resume();response.on('end',()=>{reused+=Number(request.reusedSocket);ok();});});request.on('error',fail);});assert.equal(reused,5);evidence.nativeHttpConnectionReused=true;}finally{agent.destroy();}
+ assert.equal(await capture.locator('#share').isVisible(),false);assert.equal(await tech.evaluate(()=>Boolean(document.fullscreenElement)),false);await tech.locator('#full-session').click();await tech.waitForFunction(()=>Boolean(document.fullscreenElement));
+ let captureBusy=0,captureStateFailure=0,techStateFailure=0;
+ await capture.route('**/support/native/frame?**',route=>{if(captureBusy<6){captureBusy++;return captureBusy===3?route.abort('connectionreset'):route.fulfill({status:captureBusy===2?503:429,body:''});}return route.continue();});
+ await capture.route('**/support/state',route=>{if(!captureStateFailure++){return route.fulfill({status:503,contentType:'application/json',body:'{}'});}return route.continue();});
+ await tech.route('**/api/session/state',route=>{if(!techStateFailure++){return route.fulfill({status:503,contentType:'application/json',body:'{}'});}return route.continue();});
+ await tech.waitForTimeout(2800);assert.equal(await tech.locator('#session-media').isVisible(),true);assert.equal(await capture.evaluate(()=>document.body.dataset.state),'active');assert.equal(captureBusy,6);evidence.recoveredFromBusyFramesAndTransientSignaling=true;
+ await capture.evaluate(()=>{window.rejectQuality=true;});
+ await tech.locator('details.session-tools summary').click();
+ await tech.locator('#session-profile').selectOption('quality');
+ await tech.locator('details.session-tools summary').click();
+ await capture.waitForFunction(()=>window.qualityRejected===true);
+ await tech.waitForTimeout(1200);assert.equal(await capture.evaluate(()=>document.body.dataset.state),'active');evidence.encoderAdjustmentFailurePreservedSession=true;
+ // Exercise the actual transport listener; this is a synthetic state change, not packet loss emulation.
+ const originalIce=await capture.evaluate(()=>window.testPeer.localDescription.sdp.match(/a=ice-ufrag:(.+)/)?.[1]);
+ await capture.evaluate(()=>{Object.defineProperty(window.testPeer,'connectionState',{configurable:true,value:'disconnected'});window.testPeer.dispatchEvent(new Event('connectionstatechange'));});
+ await tech.waitForTimeout(1500);assert.notEqual(await capture.evaluate(()=>document.body.dataset.state),'ended');
+ await capture.evaluate(()=>{delete window.testPeer.connectionState;window.testPeer.dispatchEvent(new Event('connectionstatechange'));});
+ await capture.waitForFunction(()=>window.testPeer.signalingState==='stable'&&window.testPeer.remoteDescription?.type==='answer');
+ assert.ok(service.sessions.current.signalRevision>=2);assert.notEqual(await capture.evaluate(()=>window.testPeer.localDescription.sdp.match(/a=ice-ufrag:(.+)/)?.[1]),originalIce);evidence.iceRenegotiationWithNewCredentials=true;
+ await tech.evaluate(()=>{Object.defineProperty(window.testPeer,'connectionState',{configurable:true,value:'disconnected'});window.testPeer.dispatchEvent(new Event('connectionstatechange'));});
+ await tech.waitForTimeout(1500);assert.equal(await tech.locator('#session-media').isVisible(),true);
+ await tech.evaluate(()=>{delete window.testPeer.connectionState;window.testPeer.dispatchEvent(new Event('connectionstatechange'));});
+ let failedInput=0;await capture.route('**/support/input',route=>{if(!failedInput++)return route.fulfill({status:503,contentType:'application/json',body:'{}'});return route.continue();});
+ await tech.locator('#remote-video').click();await tech.waitForTimeout(700);assert.ok(failedInput>=2);assert.equal(await capture.evaluate(()=>document.body.dataset.state),'active');await capture.unroute('**/support/input');evidence.inputFailureReleasedWithoutReplay=true;evidence.transientMediaStateRecovered=true;
  const monitorCount=await tech.locator('#session-monitor option').count();assert.ok(monitorCount>=1);evidence.enumeratedMonitors=monitorCount;
  for(let i=0;i<monitorCount;i++){await tech.locator('#session-monitor').selectOption({index:i});await tech.waitForFunction(()=>!document.getElementById('session-monitor').disabled);await tech.waitForTimeout(300);}await tech.locator('#session-monitor').selectOption({index:0});await tech.waitForFunction(()=>!document.getElementById('session-monitor').disabled);await tech.waitForTimeout(300);
  await tech.locator('#remote-video').click();await tech.keyboard.insertText('Ação');await tech.keyboard.down('Control');await tech.keyboard.up('Control');
  await tech.waitForTimeout(300);assert.ok(inputs.some(e=>e.type===1&&e.flags===4&&e.scan==='ç'.charCodeAt(0)));assert.ok(inputs.some(e=>e.type===0&&e.flags===0xC001));
  await tech.locator('#session-zoom').selectOption('150');assert.equal(await tech.locator('#remote-video').evaluate(v=>v.style.width),'1920px');await tech.locator('#session-zoom').selectOption('fit');
- await tech.locator('#secure-attention').click();assert.match(await tech.locator('#quality-notice').textContent(),/serviço Windows/);
+ await tech.locator('details.session-tools summary').click();await tech.locator('#secure-attention').click();assert.match(await tech.locator('#quality-notice').textContent(),/serviço Windows/);
  await tech.locator('#session-files').click();await tech.locator('#files-path').fill(folder);await tech.locator('#files-open').click();await tech.getByRole('button',{name:'↓ receber-ação.bin',exact:true}).waitFor();
  await tech.evaluate(()=>{window.saved=[];window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async bytes=>window.saved.push(...bytes),close:async()=>{window.savedClosed=true;},abort:async()=>{window.savedAborted=true;}})});});
  await tech.getByRole('button',{name:'↓ receber-ação.bin',exact:true}).click();await tech.waitForFunction(()=>document.getElementById('files-status').textContent.startsWith('Arquivo recebido:'),null,{timeout:30000});
@@ -64,6 +94,6 @@ try{
  await tech.locator('#remote-keyboard').focus();await tech.keyboard.down('Control');await tech.waitForTimeout(100);await tech.locator('#end-session').click();await tech.waitForFunction(()=>document.getElementById('session-panel').hidden);
  await capture.waitForFunction(()=>document.getElementById('status').textContent.includes('encerrado'),null,{timeout:6000});assert.equal(await tech.evaluate(()=>document.getElementById('remote-video').srcObject),null);
  await new Promise(r=>setTimeout(r,500));assert.equal((await readdir(folder)).some(f=>f.endsWith('.partial')||f==='disconnect.bin'),false);
- assert.deepEqual(errors,[]);assert.equal(upstreamCaptureAssets,0);Object.assign(evidence,{result:'passed',captureAssetsEmbedded:true,upstreamCaptureAssetRequests:upstreamCaptureAssets,h264SyntheticVideo:true,nativeBridgeToInputSink:true,selectedMonitorCoordinates:true,automaticFullscreen:true,zoom:true,bidirectionalFiles:true,receivedBytes:received.length,sentBytes:upload.length,fileHashesMatch:true,existingFilePreserved:true,largeSizeAccepted:5*1024**3,cancelRemovedPartial:true,unauthenticatedBridgeDenied:true,endRemovedVideo:true,errors});
+ assert.deepEqual(errors,[]);assert.equal(upstreamCaptureAssets,0);Object.assign(evidence,{result:'passed',captureAssetsEmbedded:true,upstreamCaptureAssetRequests:upstreamCaptureAssets,h264SyntheticVideo:true,nativeBridgeToInputSink:true,selectedMonitorCoordinates:true,automaticFullscreen:false,explicitFullscreen:true,zoom:true,bidirectionalFiles:true,receivedBytes:received.length,sentBytes:upload.length,fileHashesMatch:true,existingFilePreserved:true,largeSizeAccepted:5*1024**3,cancelRemovedPartial:true,unauthenticatedBridgeDenied:true,endRemovedVideo:true,errors});
 }catch(e){evidence.result='failed';evidence.failure=e.stack;evidence.errors=errors;evidence.requests=requests.slice(-35);if(capture){evidence.captureStatus=await capture.locator('body').innerText().catch(()=>'?');await capture.screenshot({path:join(out,'capture-failure.png')}).catch(()=>{});}process.exitCode=1;if(tech)await tech.screenshot({path:join(out,'failure.png')}).catch(()=>{});}
 finally{await browser?.close();child?.kill();await host.close();await service.close();await rm(dir,{recursive:true,force:true});await writeFile(join(out,'desktop-session.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence,null,2));}

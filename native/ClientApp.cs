@@ -48,8 +48,11 @@ public sealed class ClientWindow : Form {
  readonly Label code=new VoaCodeLabel(),status=new Label(),connection=new Label(),requester=new Label();readonly Button copy=new VoaButton(),reconnect=new VoaButton(),control=new VoaButton(),end=new VoaButton(),update=new VoaButton();
  Image watermark;readonly Label codeCaption=new Label(),versionLabel=new Label();
  bool layoutReady;
- DesktopBridge bridge;
- bool NativeAllowed(){return !closing&&localPermission=="control"&&consentSession!=null&&consentSession==sessionId&&input.Enabled&&(DateTime.UtcNow-lastCommand).TotalMilliseconds<1200;}
+ DesktopBridge bridge;HttpResponseMessage eventResponse;bool legacyPolling;
+ const int InputFreshMs=1200,SessionFreshMs=8000;
+ // A stale heartbeat pauses input immediately; it does not revoke the video
+ // consent until the bounded session lease expires. Local revoke stays immediate.
+ bool NativeAllowed(){return !closing&&localPermission=="control"&&consentSession!=null&&consentSession==sessionId&&(DateTime.UtcNow-lastCommand).TotalMilliseconds<SessionFreshMs;}
  void StopBridge(){if(bridge!=null){bridge.Dispose();bridge=null;}}
  readonly CheckBox startup=new CheckBox();readonly Timer timer=new Timer();readonly NotifyIcon tray=new NotifyIcon();readonly RemoteInput input;readonly GuideOverlay overlay=new GuideOverlay(); readonly bool testing; public string LastCaptureTicket {get;private set;} DateTime lastCommand=DateTime.UtcNow; readonly Timer watchdog=new Timer();
  string token,accessCode,sessionId,displayedId,consentSession,localPermission="none";long consentEpoch;int updateTicks;bool busy,closing,allowClose,exitRequested,background,initialized,updateRequired,checkingUpdate,decisionPending;Uri server;ClientIdentity identity;UpdatePackage package;
@@ -83,7 +86,7 @@ public sealed class ClientWindow : Form {
   http.Timeout=TimeSpan.FromSeconds(5);http.DefaultRequestHeaders.UserAgent.ParseAdd("VoaDeskClient/0.4");
   try{server=ValidateEndpoint(endpoint);identity=ClientIdentity.Load(identityFolder??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"VoaDesk","client"),server);package=new UpdatePackage(server);}catch{code.Text="Configuração indisponível";status.Text="Sua identidade foi preservada. Contate o suporte.";return;}
   Shown+=async delegate{if(!initialized){initialized=true;await Begin();}};
-  watchdog.Interval=100;watchdog.Tick+=delegate{if((DateTime.UtcNow-lastCommand).TotalMilliseconds>1200)input.Enabled=false;};watchdog.Start();
+  watchdog.Interval=100;watchdog.Tick+=async delegate{double age=(DateTime.UtcNow-lastCommand).TotalMilliseconds;if(age>InputFreshMs)input.Enabled=false;if(age>SessionFreshMs&&consentSession!=null){StopBridge();input.Enabled=false;overlay.Hide();localPermission="none";consentSession=null;consentEpoch++;await Decide("end");}};watchdog.Start();
   timer.Interval=5000;timer.Tick+=async delegate{if(closing||busy)return;if(++updateTicks%60==0)await CheckUpdate(false);if(token==null)await Register();else{try{var state=await Request("v2/clients/status",HttpMethod.Get,token);if(Convert.ToString(state["state"])=="offline")await Register();}catch{input.Enabled=false;connection.Text="Offline · tentando reconectar…";}}};
   FormClosing+=async delegate(object sender,FormClosingEventArgs e){
    input.Enabled=false;overlay.Hide();
@@ -109,9 +112,18 @@ public sealed class ClientWindow : Form {
  void Setup(Button b,string text,Rectangle bounds,bool primary){b.Text=text;b.Bounds=bounds;b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderSize=0;b.BackColor=primary?blue:Color.White;b.ForeColor=primary?Color.White:VoaTheme.Ink;b.Cursor=Cursors.Hand;b.AccessibleName=text;Controls.Add(b);}
  void AddLabel(string text,Rectangle bounds,Color color,int size,FontStyle style){Controls.Add(new Label{Text=text,Bounds=bounds,ForeColor=color,Font=new Font("Segoe UI",size,style),TextAlign=ContentAlignment.MiddleCenter});}
  public static Uri ValidateEndpoint(string value){Uri uri;if(!Uri.TryCreate(value,UriKind.Absolute,out uri)||!String.IsNullOrEmpty(uri.UserInfo)||!String.IsNullOrEmpty(uri.Query)||!String.IsNullOrEmpty(uri.Fragment)||(uri.Scheme!="https"&&!(uri.Scheme=="http"&&(uri.Host=="127.0.0.1"||uri.Host=="localhost"))))throw new ArgumentException();return new Uri(uri.ToString().TrimEnd('/')+"/");}
- async Task<Dictionary<string,object>> Request(string route,HttpMethod method,string bearer,object payload=null){using(var req=new HttpRequestMessage(method,new Uri(server,route))){if(bearer!=null)req.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",bearer);if(method==HttpMethod.Post)req.Content=new StringContent(json.Serialize(payload??new{}),Encoding.UTF8,"application/json");using(var res=await http.SendAsync(req)){res.EnsureSuccessStatusCode();return json.Deserialize<Dictionary<string,object>>(await res.Content.ReadAsStringAsync());}}}
- async Task Revoke(){StopBridge();var old=token;token=null;consentEpoch++;decisionPending=false;localPermission="none";input.Enabled=false;if(old!=null)try{await Task.WhenAny(Request("v2/clients/revoke",HttpMethod.Post,old),Task.Delay(1500));}catch{}}
+ async Task<Dictionary<string,object>> Request(string route,HttpMethod method,string bearer,object payload=null){using(var req=new HttpRequestMessage(method,new Uri(server,route))){if(bearer!=null)req.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",bearer);if(method==HttpMethod.Post)req.Content=new StringContent(json.Serialize(payload??new{}),Encoding.UTF8,"application/json");using(var res=await http.SendAsync(req)){if(res.StatusCode==HttpStatusCode.Unauthorized||res.StatusCode==HttpStatusCode.Forbidden)throw new UnauthorizedAccessException();res.EnsureSuccessStatusCode();return json.Deserialize<Dictionary<string,object>>(await res.Content.ReadAsStringAsync());}}}
+ async Task Revoke(){if(eventResponse!=null)eventResponse.Dispose();StopBridge();var old=token;token=null;consentEpoch++;decisionPending=false;localPermission="none";input.Enabled=false;if(old!=null)try{await Task.WhenAny(Request("v2/clients/revoke",HttpMethod.Post,old),Task.Delay(1500));}catch{}}
  async Task Register(){if(busy||closing||updateRequired)return;busy=true;reconnect.Enabled=false;try{await Revoke();var r=await Request("v2/clients",HttpMethod.Post,null,new{deviceId=identity.DeviceId,secret=identity.Secret});token=Convert.ToString(r["token"]);accessCode=Convert.ToString(r["code"]);code.Text=accessCode;copy.Enabled=true;connection.Text="Online · informe o código ao suporte";status.Text="Informe este código ao técnico.";}catch{input.Enabled=false;connection.Text=server.Scheme=="https"?"Servidor indisponível · tentando reconectar…":"Abra o VoaDesk principal neste computador.";status.Text="Reconexão automática · sua identidade foi mantida.";}finally{busy=false;reconnect.Enabled=true;}}
+ static void StartCaptureBrowser(string url){
+  string profile=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"VoaDesk","capture-profile");
+  // The capture page also drives WebRTC and must keep running when its window is minimized.
+  string args="--app=\""+url+"\" --user-data-dir=\""+profile+"\" "
+   +"--disable-features=WebRtcHideLocalIpsWithMdns,CalculateNativeWinOcclusion "
+   +"--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows "
+   +"--disable-extensions --no-first-run --window-size=800,650";
+  Process.Start(new ProcessStartInfo("msedge.exe",args){UseShellExecute=true});
+ }
  async Task Decide(string permission){
   if(decisionPending&&permission!="end"&&permission!="deny")return;
   bool failed=false;long epoch=++consentEpoch;localPermission="none";string decidedSession=sessionId;
@@ -123,23 +135,57 @@ public sealed class ClientWindow : Form {
    control.Enabled=false;
    if(permission=="end"||permission=="deny"){sessionId=consentSession=null;ShowSessionControls(false);status.Text="Atendimento encerrado.";tray.Text="VoaDesk · aguardando atendimento";return;}
    requester.Text="Conexão aceita · todos os monitores e arquivos";status.Text="O técnico pode controlar e transferir arquivos. Você pode encerrar a qualquer momento.";
-   if(r.ContainsKey("ticket")){LastCaptureTicket=Convert.ToString(r["ticket"]);if(testing)return;StopBridge();input.TargetBounds=Screen.PrimaryScreen.Bounds;input.Enabled=true;lastCommand=DateTime.UtcNow;var created=new DesktopBridge(this,server,NativeAllowed,e=>{if(Convert.ToString(e["type"])=="guide")overlay.PointAt(Convert.ToDouble(e["x"]),Convert.ToDouble(e["y"]));else input.Apply(e);},bounds=>{input.TargetBounds=bounds;overlay.TargetBounds=bounds;overlay.Hide();},new Action(async delegate{await Decide("end");}));bridge=created;await created.Initialize(LastCaptureTicket);if(epoch!=consentEpoch||bridge!=created){created.Dispose();return;}string url=created.BootstrapUrl;string profile=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"VoaDesk","capture-profile");Process.Start(new ProcessStartInfo("msedge.exe","--app=\""+url+"\" --user-data-dir=\""+profile+"\" --disable-features=WebRtcHideLocalIpsWithMdns --disable-extensions --no-first-run --window-size=800,650"){UseShellExecute=true});}
+   if(r.ContainsKey("ticket")){LastCaptureTicket=Convert.ToString(r["ticket"]);if(testing)return;StopBridge();input.TargetBounds=Screen.PrimaryScreen.Bounds;input.Enabled=true;lastCommand=DateTime.UtcNow;var created=new DesktopBridge(this,server,NativeAllowed,e=>{if(Convert.ToString(e["type"])=="guide"&&input.Enabled)overlay.PointAt(Convert.ToDouble(e["x"]),Convert.ToDouble(e["y"]));else input.Apply(e);},bounds=>{input.TargetBounds=bounds;overlay.TargetBounds=bounds;overlay.Hide();},new Action(async delegate{await Decide("end");}));bridge=created;await created.Initialize(LastCaptureTicket);if(epoch!=consentEpoch||bridge!=created){created.Dispose();return;}StartCaptureBrowser(created.BootstrapUrl);}
   }catch{failed=true;}finally{if(epoch==consentEpoch){decisionPending=false;end.Enabled=true;}}
   if(epoch!=consentEpoch)return;
   if(failed){StopBridge();localPermission="none";input.Enabled=false;if(permission=="end"||permission=="deny"){status.Text="Falha ao encerrar. Tente novamente.";return;}try{await Request("v3/client/decision",HttpMethod.Post,token,new{id=decidedSession,permission="end"});}catch{}status.Text="Não foi possível iniciar. Controle desativado.";}
  }
- async Task PollLoop(){
-  while(!closing){
-   if(token!=null&&!updateRequired)try{
-    long epoch=consentEpoch;string pollToken=token;DateTime pollStart=DateTime.UtcNow;
-    var s=await Request("v3/client/commands",HttpMethod.Get,pollToken);if(closing)break;
-    if(epoch!=consentEpoch||pollToken!=token||decisionPending){await Task.Delay(40);continue;}
+ void ApplySessionState(Dictionary<string,object> s,DateTime pollStart,long epoch,string pollToken){
+  if(closing||epoch!=consentEpoch||pollToken!=token||decisionPending)return;
     lastCommand=DateTime.UtcNow;string state=Convert.ToString(s["state"]),permission=Convert.ToString(s["permission"]);
     if(state=="pending"){input.Enabled=false;sessionId=Convert.ToString(s["id"]);ShowSessionControls(true);if(displayedId!=sessionId){displayedId=sessionId;Reveal();tray.ShowBalloonTip(5000,"VoaDesk",Convert.ToString(s["operatorName"])+" solicita atendimento.",ToolTipIcon.Info);}requester.Text=Convert.ToString(s["operatorName"])+" solicita acesso";control.Enabled=true;end.Text="Recusar acesso";status.Text="Ao aceitar, você permite controle, acesso aos monitores e transferência de arquivos.";tray.Text="VoaDesk · autorização pendente";}
-    else if(state=="approved"||state=="active"){sessionId=Convert.ToString(s["id"]);ShowSessionControls(true);if((DateTime.UtcNow-pollStart).TotalMilliseconds>1200){input.Enabled=false;await Task.Delay(40);continue;}input.Enabled=permission=="control"&&localPermission=="control"&&consentSession==sessionId;requester.Text=Convert.ToString(s["operatorName"])+(input.Enabled?" · controle autorizado":" · controle pausado");control.Enabled=false;end.Text="Encerrar atendimento";tray.Text="VoaDesk · atendimento ativo";var events=s["commands"] as System.Collections.IEnumerable;if(events!=null)foreach(var raw in events){var item=raw as Dictionary<string,object>;if(item==null)continue;if(Convert.ToString(item["type"])=="guide"){if(consentSession==sessionId&&localPermission!="none"&&Screen.AllScreens.Length==1)overlay.PointAt(Convert.ToDouble(item["x"]),Convert.ToDouble(item["y"]));}else input.Apply(item);}}
+    else if(state=="approved"||state=="active"){sessionId=Convert.ToString(s["id"]);ShowSessionControls(true);if((DateTime.UtcNow-pollStart).TotalMilliseconds>InputFreshMs){input.Enabled=false;return;}input.Enabled=permission=="control"&&localPermission=="control"&&consentSession==sessionId;requester.Text=Convert.ToString(s["operatorName"])+(input.Enabled?" · controle autorizado":" · controle pausado");control.Enabled=false;end.Text="Encerrar atendimento";tray.Text="VoaDesk · atendimento ativo";var events=s["commands"] as System.Collections.IEnumerable;if(events!=null)foreach(var raw in events){var item=raw as Dictionary<string,object>;if(item==null)continue;if(Convert.ToString(item["type"])=="guide"){if(consentSession==sessionId&&localPermission!="none"&&Screen.AllScreens.Length==1)overlay.PointAt(Convert.ToDouble(item["x"]),Convert.ToDouble(item["y"]));}else input.Apply(item);}}
     else{StopBridge();input.Enabled=false;overlay.Hide();if(sessionId!=null){status.Text="Atendimento encerrado.";sessionId=consentSession=null;localPermission="none";}ShowSessionControls(false);control.Enabled=false;tray.Text="VoaDesk · aguardando atendimento";}
-   }catch{StopBridge();input.Enabled=false;localPermission="none";consentEpoch++;overlay.Hide();connection.Text="Conexão interrompida · solicite novo atendimento";}
-   await Task.Delay(sessionId==null?500:40);
+ }
+ async Task ReadSessionEvents(){
+  long epoch=consentEpoch;string pollToken=token;
+  using(var requestDeadline=new System.Threading.CancellationTokenSource(5000))
+  using(var req=new HttpRequestMessage(HttpMethod.Get,new Uri(server,"v3/client/events"))){
+   req.Headers.Authorization=new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",pollToken);
+   using(var response=await http.SendAsync(req,HttpCompletionOption.ResponseHeadersRead,requestDeadline.Token)){
+    requestDeadline.CancelAfter(System.Threading.Timeout.Infinite);
+    if(response.StatusCode==HttpStatusCode.NotFound||response.StatusCode==HttpStatusCode.BadRequest){legacyPolling=true;return;}
+    if(response.StatusCode==HttpStatusCode.Forbidden||response.StatusCode==HttpStatusCode.Unauthorized)throw new UnauthorizedAccessException();
+    response.EnsureSuccessStatusCode();eventResponse=response;
+    double? clockOffset=null;
+    try{using(var reader=new StreamReader(await response.Content.ReadAsStreamAsync(),Encoding.UTF8)){
+     while(!closing&&epoch==consentEpoch&&pollToken==token){
+      var lineTask=reader.ReadLineAsync();
+      if(await Task.WhenAny(lineTask,Task.Delay(InputFreshMs))!=lineTask)throw new IOException("Heartbeat expired");
+      string line=await lineTask;if(line==null)throw new IOException("State stream closed");
+      if(line.Length>131072)throw new IOException("State exceeded");
+      if(!line.StartsWith("data: "))continue;
+      var state=json.Deserialize<Dictionary<string,object>>(line.Substring(6));
+      double sentAt=Convert.ToDouble(state["heartbeatAt"]),now=(DateTime.UtcNow-new DateTime(1970,1,1)).TotalMilliseconds;
+      if(!clockOffset.HasValue)clockOffset=now-sentAt;
+      if(now-sentAt-clockOffset.Value>InputFreshMs)throw new IOException("Stale heartbeat");
+      ApplySessionState(state,DateTime.UtcNow,epoch,pollToken);
+     }
+    }}finally{if(eventResponse==response)eventResponse=null;}
+   }
+  }
+ }
+ async Task PollLoop(){
+  int retryMs=250;
+  while(!closing){
+   if(token!=null&&!updateRequired)try{
+    if(!legacyPolling)await ReadSessionEvents();
+    else{long epoch=consentEpoch;string pollToken=token;DateTime started=DateTime.UtcNow;var state=await Request("v3/client/commands",HttpMethod.Get,pollToken);ApplySessionState(state,started,epoch,pollToken);}
+    retryMs=250;
+   }catch(UnauthorizedAccessException){StopBridge();input.Enabled=false;overlay.Hide();localPermission="none";consentSession=null;consentEpoch++;connection.Text="Acesso revogado";}catch{input.Enabled=false;overlay.Hide();connection.Text="Sinalização interrompida · controle pausado";if((DateTime.UtcNow-lastCommand).TotalMilliseconds>=SessionFreshMs){StopBridge();localPermission="none";consentSession=null;consentEpoch++;connection.Text="Conexão interrompida · solicite novo atendimento";}}
+
+   await Task.Delay(legacyPolling?(sessionId==null?500:40):retryMs);
+   if(!legacyPolling)retryMs=Math.Min(1000,retryMs*2);
   }
  }
  async Task CheckUpdate(bool showResult){

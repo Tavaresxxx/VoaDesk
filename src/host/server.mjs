@@ -58,6 +58,7 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
   const token = randomBytes(32).toString('base64url');
   const cookie = randomBytes(32).toString('base64url');
   const bootstrapExpires = Date.now() + 120000;
+  const operatorSeat=randomBytes(24).toString('hex');
   let sessionToken = null, pendingSessionRequest=null, shuttingDown=false, closing=null;
   let bootstrapped = false;
   let lastHeartbeat = Date.now();
@@ -110,7 +111,7 @@ export async function createHost({ port = 0, dataDir = join(root, '.runtime'), i
         const payload=await readJson(req,res,action==='signal'?110000:2048);
         const auth=action==='request'?pairing.token:sessionToken;
         if(!auth)return response(res,403,'{}','application/json');
-        const operation=(async()=>{const upstream=await fetch(new URL('/v3/operator/'+action,pairing.url),{method:'POST',headers:{Authorization:'Bearer '+auth,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(5000)});
+        const operation=(async()=>{const upstream=await fetch(new URL('/v3/operator/'+action,pairing.url),{method:'POST',headers:{Authorization:'Bearer '+auth,'X-VoaDesk-Operator-Seat':operatorSeat,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(5000)});
         const result=await upstream.json();
         if(action==='request'&&upstream.ok){sessionToken=result.token;delete result.token;}
         return response(res,upstream.status,JSON.stringify(result),'application/json');

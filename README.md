@@ -108,3 +108,16 @@ Consulte [mapa dos controles, validações e limites](docs/interface-windows.md)
 ## Desempenho 0.7
 
 Leitura HTTP local em blocos, fila de entrada com prioridade para eventos confiáveis, captura sem sobreposição e métricas por etapa. Consulte [auditoria, configuração ICE, testes e pendências](docs/performance-0.7.md). As metas de FPS e latência dependem de validação entre computadores.
+
+Correção local 0.7.1: atrasos curtos da sinalização pausam comandos sem invalidar
+imediatamente a captura. Quadros recusados por ocupação são reagendados. Consulte
+[limites, revogação e testes da recuperação](docs/connection-recovery-0.7.1.md).
+
+## Ajustes 0.7.3
+
+Perfil inicial economico (720p/30 FPS), adaptacao separada por rede e processamento,
+ordenacao do ponteiro, escala unica na captura nativa, buffers reutilizados,
+HTTP local persistente, heartbeat SSE, arquivos binarios com janela limitada,
+recuperacao ICE com revisoes e isolamento por atendimento.
+Consulte [implementacao, testes e limites](docs/adaptacao-local.md).
+DXGI, remocao do JPEG e homologacao entre redes continuam pendentes.
